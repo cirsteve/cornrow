@@ -5,6 +5,7 @@ import { nodeIdOf, type WallMaze } from '../model/wall-maze';
 import { bfs } from './bfs';
 import { cancelledResult, type Endpoints, type SolveResult, type TraceEvent } from './contract';
 import { checkPath } from './path-validity';
+import { generate, solve } from '../index';
 
 function drain(maze: WallMaze, endpoints: Endpoints = maze): { events: TraceEvent[]; result: SolveResult } {
   const iterator = bfs(maze, endpoints);
@@ -87,5 +88,28 @@ describe('BFS stepper', () => {
     expect(checkPath(openCorridorMaze, [], openCorridorMaze).ok).toBe(false);
     expect(checkPath(openCorridorMaze, [openCorridorMaze.start], openCorridorMaze).ok).toBe(false);
     expect(checkPath(openCorridorMaze, [openCorridorMaze.start, openCorridorMaze.goal], openCorridorMaze)).toMatchObject({ ok: false, error: { detail: 'Path crosses a wall' } });
+  });
+});
+
+describe('public DOM-free core', () => {
+  it('generates a maze and drains both registered solvers with default endpoints', () => {
+    const { environment } = generate({ seed: 'cornrow', rows: 10, cols: 10 });
+    for (const id of ['bfs', 'astar']) {
+      const { result, events } = solve(environment, id);
+      expect(result.outcome).toBe('found');
+      expect(checkPath(environment, result.path, environment).ok).toBe(true);
+      expect(events.at(-1)).toEqual({ type: 'path', path: result.path });
+    }
+    expect(solve(environment, 'bfs')).toEqual(drain(environment));
+    expect(typeof window).toBe('undefined');
+    expect(typeof document).toBe('undefined');
+  });
+
+  it('drains custom endpoints and unreachable results through the public entry', () => {
+    const endpoints = { start: comparisonMaze.goal, goal: comparisonMaze.start };
+    const run = solve(comparisonMaze, 'bfs', endpoints);
+    expect(checkPath(comparisonMaze, run.result.path, endpoints).ok).toBe(true);
+    expect(solve(isolatedGoalMaze, 'astar').result.outcome).toBe('unreachable');
+    expect(() => solve(comparisonMaze, 'unknown')).toThrow('Unknown solver: unknown');
   });
 });
