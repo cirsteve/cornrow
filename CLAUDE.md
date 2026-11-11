@@ -76,3 +76,26 @@ exception to the Result convention, preserving the specified renderer/playback
 contracts without adding an error branch to each valid frame. The later mount
 layer should validate user input with `Result` before calling these APIs; expected
 solve outcomes (found, unreachable, cancelled) remain discriminated values.
+
+## Mount layer
+
+`src/mount` is the browser-facing boundary. Browser lifecycle APIs belong only
+here; the renderer's injected Canvas adapter and frame-scheduler factory retain
+their documented DOM-free import behavior. Importing the public API never reads
+DOM globals. Mount appends its own wrapper and shadow-root style, leaving host
+attributes, document.head and document stylesheets untouched.
+
+Every listener, observer, media-query listener, controller subscription and rAF
+registration goes through the local disposables collector. Destroy drains it and
+removes the wrapper. Host suspension and explicit user pause are separate intents.
+
+Mount tests opt into happy-dom per file and use
+`src/mount/test-support/instrument-globals.ts` to verify balanced registrations,
+no pending frames, preserved host content and unchanged global styles. Normalise
+user options before invoking controller APIs; `getSolver` supplies Result-based
+solver validation. Seed entropy is injected into the pure normaliser at mount.
+
+`bun run dev` serves the tiny `demo/` host through Vite. It mounts exclusively via
+`mountCornrow` from the public entry. Keep the manual keyboard, touch and live
+reduced-motion checklist with screenshots in the PR body; this is a review
+process step, not an additional application feature.
