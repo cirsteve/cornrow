@@ -1,11 +1,11 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, expectTypeOf, it } from 'vitest';
 import { recursiveBacktracker } from '../generate/recursive-backtracker';
 import { comparisonMaze, isolatedGoalMaze, openCorridorMaze } from '../model/fixtures';
-import { nodeIdOf, type WallMaze } from '../model/wall-maze';
+import { nodeIdOf, type SolverId, type WallMaze } from '../model/wall-maze';
 import { bfs } from './bfs';
 import { cancelledResult, type Endpoints, type SolveResult, type TraceEvent } from './contract';
 import { checkPath } from './path-validity';
-import { generate, solve } from '../index';
+import { generate, getSolver, solve, solverRegistry } from '../index';
 
 function drain(maze: WallMaze, endpoints: Endpoints = maze): { events: TraceEvent[]; result: SolveResult } {
   const iterator = bfs(maze, endpoints);
@@ -94,22 +94,39 @@ describe('BFS stepper', () => {
 describe('public DOM-free core', () => {
   it('generates a maze and drains both registered solvers with default endpoints', () => {
     const { environment } = generate({ seed: 'cornrow', rows: 10, cols: 10 });
-    for (const id of ['bfs', 'astar']) {
+    for (const { id } of solverRegistry) {
       const { result, events } = solve(environment, id);
       expect(result.outcome).toBe('found');
       expect(checkPath(environment, result.path, environment).ok).toBe(true);
       expect(events.at(-1)).toEqual({ type: 'path', path: result.path });
     }
-    expect(solve(environment, 'bfs')).toEqual(drain(environment));
+    const descriptor = getSolver('bfs');
+    if (!descriptor.ok) throw new Error(descriptor.error.detail);
+    expect(solve(environment, descriptor.value.id)).toEqual(drain(environment));
     expect(typeof window).toBe('undefined');
     expect(typeof document).toBe('undefined');
   });
 
   it('drains custom endpoints and unreachable results through the public entry', () => {
     const endpoints = { start: comparisonMaze.goal, goal: comparisonMaze.start };
-    const run = solve(comparisonMaze, 'bfs', endpoints);
+    const breadthFirst = getSolver('bfs');
+    const aStar = getSolver('astar');
+    if (!breadthFirst.ok) throw new Error(breadthFirst.error.detail);
+    if (!aStar.ok) throw new Error(aStar.error.detail);
+    const run = solve(comparisonMaze, breadthFirst.value.id, endpoints);
     expect(checkPath(comparisonMaze, run.result.path, endpoints).ok).toBe(true);
-    expect(solve(isolatedGoalMaze, 'astar').result.outcome).toBe('unreachable');
-    expect(() => solve(comparisonMaze, 'unknown')).toThrow('Unknown solver: unknown');
+    expect(solve(isolatedGoalMaze, aStar.value.id).result.outcome).toBe('unreachable');
+  });
+
+  it('requires a branded solver id and validates user-selected strings through Result', () => {
+    expectTypeOf<Parameters<typeof solve>[1]>().toEqualTypeOf<SolverId>();
+    expectTypeOf<string>().not.toMatchTypeOf<Parameters<typeof solve>[1]>();
+    const selected = getSolver('astar');
+    if (!selected.ok) throw new Error(selected.error.detail);
+    expect(solve(comparisonMaze, selected.value.id).result.outcome).toBe('found');
+    expect(getSolver('unknown')).toMatchObject({
+      ok: false,
+      error: { operation: 'getSolver', id: 'unknown' },
+    });
   });
 });
