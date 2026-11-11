@@ -3,6 +3,7 @@ import { recursiveBacktracker } from '../generate/recursive-backtracker';
 import type { WallMazeGenerator } from '../generate/contract';
 import { comparisonMaze, isolatedGoalMaze } from '../model/fixtures';
 import type { SolverId } from '../model/wall-maze';
+import { astar } from '../search/astar';
 import { bfs } from '../search/bfs';
 import { cancelledResult, type Solver } from '../search/contract';
 import { initialTraceState } from '../trace/trace-state';
@@ -229,6 +230,22 @@ describe('controller playback', () => {
     expect(controller.getSnapshot().traceState.stepIndex).toBe(0);
     scheduler.frame(100);
     expect(controller.getSnapshot().traceState.stepIndex).toBe(6);
+  });
+
+  it('announces only the replacing solver when a state-change listener starts another solve', () => {
+    const astarId = 'astar' as SolverId;
+    const controller = createController({
+      generator: recursiveBacktracker,
+      solvers: [{ id: solverId, label: 'Injected solver', solver: bfs }, { id: astarId, label: 'A* (Manhattan)', solver: astar }],
+      scheduler: new FakeScheduler(), onRender: vi.fn(), initialOptions,
+    });
+    const started: SolverId[] = [];
+    controller.on(event => {
+      if (event.type === 'solve-started') started.push(event.solverId);
+      if (event.type === 'state-change' && event.playback.kind === 'running' && event.playback.solverLabel === 'Injected solver') controller.solve(astarId);
+    });
+    controller.solve(solverId);
+    expect(started).toEqual([astarId]);
   });
 
   it('ignores replay without a completed result and clears old logs on reset and generate', () => {

@@ -66,7 +66,7 @@ With `prefers-reduced-motion`, interactive Solve completes immediately and a Ste
 button lets you inspect one event at a time. Background mode renders a static
 solved frame and requests no animation frames. Preference changes are tracked
 live. If Canvas is unavailable, a text summary reports seed, dimensions, solver,
-outcome, visited count, path length and path coordinates. Without animation APIs,
+outcome, visited count and path length. Without animation APIs,
 solves also complete synchronously.
 
 For a complete consumer, see [examples/host-page](examples/host-page): a plain

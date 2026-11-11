@@ -143,8 +143,11 @@ export function createController({ generator, solvers, scheduler, onRender, init
     log = [];
     result = null;
     carryMs = 0;
-    iterator = descriptor.solver(generation.environment, generation.environment);
+    const started = descriptor.solver(generation.environment, generation.environment);
+    iterator = started;
     setPlayback({ kind, solverLabel: descriptor.label });
+    // A state-change listener may have replaced this solve; announcing it now would arrive after the replacement's start.
+    if (iterator !== started) return;
     emit({ type: 'solve-started', solverId: descriptor.id, solverLabel: descriptor.label });
   }
   const controller: CornrowController = {
