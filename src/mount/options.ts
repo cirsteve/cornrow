@@ -10,7 +10,7 @@ export interface MountOptions {
   readonly label?: string;
 }
 export interface NormalisedMountOptions {
-  readonly seed: string | number;
+  readonly seed: string;
   readonly rows: number;
   readonly cols: number;
   readonly solver: SolverId;
@@ -23,7 +23,8 @@ export function normaliseMountOptions(options: MountOptions, freshSeed: string |
   const solver = getSolver(options.solver ?? 'bfs');
   const speed = options.stepsPerSecond ?? 60;
   return {
-    seed: options.seed ?? freshSeed,
+    // Native text fields must replay the same seed type used for the first maze.
+    seed: String(options.seed ?? freshSeed),
     rows: clampGridSize(options.rows ?? 20), cols: clampGridSize(options.cols ?? 20),
     solver: solver.ok ? solver.value.id : 'bfs' as SolverId,
     stepsPerSecond: Number.isFinite(speed) ? Math.min(500, Math.max(1, speed)) : 60,

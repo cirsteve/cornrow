@@ -26,6 +26,8 @@ it('normalises options purely with injected seed entropy and bounded dimensions/
     .toMatchObject({ rows: 5, cols: 80, solver: 'bfs', stepsPerSecond: 1, seed: '' });
   expect(normaliseMountOptions({ rows: 3, cols: 100, stepsPerSecond: NaN }, 'seed')).toMatchObject({ rows: 5, cols: 80, stepsPerSecond: 60 });
   expect(normaliseMountOptions({ stepsPerSecond: 900 }, 'seed').stepsPerSecond).toBe(500);
+  expect(normaliseMountOptions({ seed: 42 }, 'unused').seed).toBe('42');
+  expect(normaliseMountOptions({}, 42).seed).toBe('42');
 });
 
 it('imports the public mount entry in node without requiring DOM globals', () => {

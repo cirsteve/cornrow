@@ -123,6 +123,36 @@ describe('mounted controls and lifecycle', () => {
     expect(events.filter(event => event.type === 'generated').at(-1)?.generation.environment).toEqual(first);
   });
 
+  it.each([42, -1, 4294967297])('replays the shown topology for numeric seed %s on submit and size changes', seed => {
+    handle.destroy();
+    handle = mountCornrow(host, { seed, rows: 10, cols: 10 });
+    const shadow = host.firstElementChild?.shadowRoot;
+    if (!shadow) throw new Error('Missing shadow root');
+    root = shadow;
+    expect(query<HTMLInputElement>('input[type=text]').value).toBe(String(seed));
+    const events: ControllerEvent[] = []; handle.on(event => events.push(event));
+    const clearWalls = (): void => {
+      globals.context.moveTo.mockClear(); globals.context.lineTo.mockClear();
+    };
+    clearWalls(); globals.resize();
+    const initialWalls = {
+      starts: [...globals.context.moveTo.mock.calls], ends: [...globals.context.lineTo.mock.calls],
+    };
+    expect(initialWalls.starts.length).toBeGreaterThan(0);
+    clearWalls(); query('form').dispatchEvent(new Event('submit', { cancelable: true }));
+    expect(globals.context.moveTo.mock.calls).toEqual(initialWalls.starts);
+    expect(globals.context.lineTo.mock.calls).toEqual(initialWalls.ends);
+    const replay = events.filter(event => event.type === 'generated').at(-1)?.generation;
+    expect(replay?.seed).toBe(String(seed));
+    const size = query<HTMLSelectElement>('select');
+    size.value = '20'; size.dispatchEvent(new Event('change'));
+    expect(events.filter(event => event.type === 'generated').at(-1)?.generation.seed).toBe(String(seed));
+    clearWalls(); size.value = '10'; size.dispatchEvent(new Event('change'));
+    expect(events.filter(event => event.type === 'generated').at(-1)?.generation).toEqual(replay);
+    expect(globals.context.moveTo.mock.calls).toEqual(initialWalls.starts);
+    expect(globals.context.lineTo.mock.calls).toEqual(initialWalls.ends);
+  });
+
   it('applies size and speed immediately and selects the next solver', () => {
     const events: ControllerEvent[] = []; handle.on(event => events.push(event));
     const size = query<HTMLSelectElement>('select'); size.value = '20'; size.dispatchEvent(new Event('change'));
