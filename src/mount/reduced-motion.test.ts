@@ -1,8 +1,38 @@
 // @vitest-environment happy-dom
-import { expect, it } from 'vitest';
+import { expect, it, vi } from 'vitest';
 import type { ControllerEvent } from '../controller/controller';
 import { mountCornrow } from './mount-cornrow';
 import { instrumentGlobals } from './test-support/instrument-globals';
+
+it.each(['reduced motion', 'null Canvas', 'missing rAF'])('respects host suspension and explicit pause with %s', mode => {
+  const globals = instrumentGlobals({ reducedMotion: mode === 'reduced motion', contextAvailable: mode !== 'null Canvas' });
+  if (mode === 'missing rAF') vi.stubGlobal('requestAnimationFrame', undefined);
+  const host = document.createElement('div');
+  const handle = mountCornrow(host, { seed: 'suspended', rows: 5, cols: 5 });
+  try {
+    const events: ControllerEvent[] = []; handle.on(event => events.push(event));
+    const status = () => host.firstElementChild?.shadowRoot?.querySelector('[aria-live]')?.textContent;
+    globals.visibility(true); globals.intersect(false);
+    handle.solve();
+    expect(status()).toContain('Paused');
+    expect(events.filter(event => event.type === 'step' || event.type === 'solved')).toHaveLength(0);
+    globals.visibility(false);
+    expect(status()).toContain('Paused');
+    expect(events.filter(event => event.type === 'step' || event.type === 'solved')).toHaveLength(0);
+    globals.intersect(true);
+    expect(status()).toContain('Found a path');
+    expect(events.at(-1)?.type).toBe('solved');
+
+    globals.visibility(true); handle.solve(); handle.pause(); events.length = 0;
+    globals.visibility(false);
+    expect(status()).toContain('Paused');
+    expect(events).toHaveLength(0);
+    handle.resume();
+    expect(status()).toContain('Found a path');
+    expect(globals.frameRequests).toBe(0);
+    handle.destroy(); globals.assertBalanced(host);
+  } finally { handle.destroy(); globals.restore(); }
+});
 
 it('solves immediately under reduced motion and steps the same recorded solve from an empty trace', () => {
   const globals = instrumentGlobals({ reducedMotion: true });

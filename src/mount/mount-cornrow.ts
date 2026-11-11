@@ -150,8 +150,7 @@ export function mountCornrow(element: HTMLElement, initialOptions: MountOptions 
       controls.algorithm.value = options.solver;
       runningIntent = true;
       playback.solve(options.solver);
-      if (synchronous()) playback.runToEnd();
-      else reconcilePlayback();
+      reconcilePlayback();
     },
     pause() { if (!destroyed) { runningIntent = false; playback.pause(); } },
     resume() {
