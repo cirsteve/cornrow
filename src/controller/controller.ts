@@ -205,7 +205,8 @@ export function createController({ generator, solvers, scheduler, onRender, init
       if (disposed || playback.kind === 'finished') return;
       if (playback.kind === 'idle') begin('paused');
       cancelFrame();
-      while (!disposed && active() && (iterator !== null || replayIndex !== null)) consume();
+      const version = frameVersion;
+      while (!disposed && version === frameVersion && active() && (iterator !== null || replayIndex !== null)) consume();
       render();
     },
     getSnapshot: () => ({ generation, traceState, playback, stepsPerSecond, selectedSolver: selected?.id ?? null }),

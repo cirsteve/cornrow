@@ -211,6 +211,26 @@ describe('controller playback', () => {
     expect(injectedSolver).toHaveBeenCalledTimes(1);
   });
 
+  it.each(['solve', 'replay'] as const)('leaves a listener-started %s animated when runToEnd completes', operation => {
+    const { controller, scheduler, injectedSolver } = setup();
+    let completions = 0;
+    controller.on(event => {
+      if (event.type !== 'solved') return;
+      completions += 1;
+      // Bound the callback so a regression fails assertions instead of hanging the suite.
+      if (completions === 1) controller[operation]();
+    });
+    controller.runToEnd();
+    expect(completions).toBe(1);
+    expect(controller.getSnapshot()).toMatchObject({ playback: { kind: 'running' }, traceState: initialTraceState });
+    expect(injectedSolver).toHaveBeenCalledTimes(operation === 'solve' ? 2 : 1);
+    expect(scheduler.callbacks.size).toBe(1);
+    scheduler.frame(0);
+    expect(controller.getSnapshot().traceState.stepIndex).toBe(0);
+    scheduler.frame(100);
+    expect(controller.getSnapshot().traceState.stepIndex).toBe(6);
+  });
+
   it('ignores replay without a completed result and clears old logs on reset and generate', () => {
     const { controller, scheduler } = setup();
     controller.replay();
