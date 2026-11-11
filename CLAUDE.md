@@ -99,3 +99,20 @@ solver validation. Seed entropy is injected into the pure normaliser at mount.
 `mountCornrow` from the public entry. Keep the manual keyboard, touch and live
 reduced-motion checklist with screenshots in the PR body; this is a review
 process step, not an additional application feature.
+
+## Distribution and background mode
+
+`bun run build` runs Vite's ESM library build then tsc declaration emit into
+`dist/`. `npm pack` runs that build through prepack; `npm pack --dry-run` must
+contain only dist/, package.json, README.md and LICENSE. `bun run example:pack`
+packs and installs the tarball in the independent static examples/host-page.
+Serve it with `python3 -m http.server 4174 --directory examples/host-page`.
+
+No module reachable from src/index.ts may touch DOM/window globals at load
+time, enforced by src/public-entry.node.test.ts. Browser APIs are resolved only
+inside mount calls (including the injected Canvas and frame-scheduler factories).
+Mode-specific behavior belongs in the mount layer. Background mode reuses the
+controller, host signals and disposables; its pure phase function owns transitions
+and its hold clock advances only with frame-scheduler timestamps.
+
+`npm publish` is operator-only, after confirming the package name and MIT licence.

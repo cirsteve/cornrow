@@ -9,7 +9,8 @@
     "test:watch": "vitest",
     "dev": "vite demo",
     "build": "vite build && tsc -p tsconfig.build.json",
-    "prepack": "bun run build"
+    "prepack": "bun run build",
+    "example:pack": "npm pack --pack-destination examples/host-page && npm install --prefix examples/host-page --package-lock=false --ignore-scripts --offline"
   },
   "devDependencies": {
     "typescript": "^5.9.3",
