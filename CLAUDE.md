@@ -11,6 +11,7 @@ do not apply to this repository.
   explaining the invariant.
 - Use discriminated unions for variants, branded domain ids, and the local
   `Result<T, E>` at IO and validation boundaries. Errors carry an operation and detail.
+  Renderer/playback programmer-error guards have the documented exception below.
 - Write pure named transforms with co-located unit tests and descriptive names.
 - Named exports only in source modules (Vite's configuration requires a default).
 - No runtime dependencies. Generator code must never use `Math.random`.
@@ -62,3 +63,16 @@ and render callback by injection. Replay uses the recorded event log. Drawing us
 CSS pixels through DrawingSurface; Canvas owns device pixel ratio and explicit
 resize. Browser frame globals are resolved only when createAnimationFrameScheduler
 is called. DOM mounting and lifecycle handling belong to the later mount layer.
+
+The renderer/playback APIs retain the cohort's direct-return and void signatures.
+`computeLayout`, `advanceAccumulator`, `createCanvasSurface`/`CanvasSurface.resize`
+and controller speed/solver selection guards intentionally throw `RangeError` for
+invalid caller configuration. These are programmer-error preconditions: positive
+grid dimensions, finite nonnegative surface sizes, positive DPR/speed, valid timing
+limits and a registered solver. Mutable operations check these preconditions before
+changing state. Zero surface dimensions and negative elapsed time are supported
+(hidden surfaces and elapsed time clamped to zero, respectively). This is a narrow
+exception to the Result convention, preserving the specified renderer/playback
+contracts without adding an error branch to each valid frame. The later mount
+layer should validate user input with `Result` before calling these APIs; expected
+solve outcomes (found, unreachable, cancelled) remain discriminated values.

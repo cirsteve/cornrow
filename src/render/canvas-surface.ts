@@ -1,9 +1,16 @@
 import type { DrawingSurface, Size } from './drawing-surface';
 
 export interface CanvasResize extends Size { readonly dpr: number }
-export interface CanvasSurface extends DrawingSurface { resize(size: CanvasResize): void }
+export interface CanvasSurface extends DrawingSurface {
+  /** @throws RangeError before changing the canvas for invalid sizes or DPR (caller error). */
+  resize(size: CanvasResize): void;
+}
 
-/** All geometry is in CSS pixels; no browser globals are accessed here. */
+/**
+ * All geometry is in CSS pixels; no browser globals are accessed here.
+ * @throws RangeError for non-finite/negative CSS sizes or non-finite/non-positive DPR.
+ * These programmer-error guards preserve the direct-return/void adapter contract.
+ */
 export function createCanvasSurface(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D, dpr: number): CanvasSurface {
   let dimensions: Size = { width: canvas.width / dpr, height: canvas.height / dpr };
   function resize(size: CanvasResize): void {

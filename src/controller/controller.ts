@@ -30,14 +30,21 @@ export interface ControllerSnapshot {
   readonly stepsPerSecond: number;
   readonly selectedSolver: SolverId | null;
 }
+/**
+ * Imperative playback handle. Invalid speed/solver configuration is a programmer error;
+ * validate user input with Result at the mount boundary before calling these methods.
+ * solve/step/runToEnd throw RangeError if no registered solver is available when starting.
+ */
 export interface CornrowController {
   generate(options?: Partial<WallMazeOptions>): void;
+  /** @throws RangeError for an unknown/missing solver, before changing playback. */
   solve(solverId?: SolverId): void;
   pause(): void;
   resume(): void;
   reset(): void;
   step(): void;
   replay(): void;
+  /** @throws RangeError for non-finite/non-positive speed; the previous speed is retained. */
   setSpeed(stepsPerSecond: number): void;
   runToEnd(): void;
   getSnapshot(): ControllerSnapshot;

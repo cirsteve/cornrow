@@ -7,6 +7,11 @@ export interface AccumulatorInput {
 }
 export interface AccumulatorResult { readonly steps: number; readonly carryMs: number }
 
+/**
+ * Direct-return frame primitive; invalid caller configuration is a programmer error.
+ * @throws RangeError for non-finite timing values, negative carry/max elapsed,
+ * non-positive speed or a non-positive/non-integer step cap. Negative elapsed is clamped.
+ */
 export function advanceAccumulator({ carryMs, elapsedMs, stepsPerSecond, maxStepsPerFrame = 500, maxElapsedMs = 250 }: AccumulatorInput): AccumulatorResult {
   if (!Number.isFinite(carryMs) || carryMs < 0 || !Number.isFinite(elapsedMs)
     || !Number.isFinite(stepsPerSecond) || stepsPerSecond <= 0
