@@ -7,11 +7,15 @@ export function drawMaze(surface: DrawingSurface, view: MazeViewModel): void {
   const { cellSize: size, origin } = computeLayout(view.rows, view.cols, surface.size());
   surface.clear(palette.background);
   if (size === 0) return;
-  const rect = (node: number, inset = 0): Rect => ({
-    x: origin.x + (node % view.cols) * size + inset,
-    y: origin.y + Math.floor(node / view.cols) * size + inset,
-    width: size - inset * 2, height: size - inset * 2,
-  });
+  const rect = (node: number, insetPerSide = 0): Rect => {
+    // Remove the inset from both opposing sides of the square.
+    const innerSize = size - insetPerSide - insetPerSide;
+    return {
+      x: origin.x + (node % view.cols) * size + insetPerSide,
+      y: origin.y + Math.floor(node / view.cols) * size + insetPerSide,
+      width: innerSize, height: innerSize,
+    };
+  };
   const center = (node: number): Point => {
     const cell = rect(node);
     return { x: cell.x + size / 2, y: cell.y + size / 2 };
