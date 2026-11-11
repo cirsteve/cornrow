@@ -47,3 +47,18 @@ Commit bun.lock. Vitest defaults to node. Future DOM tests opt in per file with
 Commit each logical subgoal only after tests and typecheck pass. Stage explicit
 paths, never `git add -A`: the untracked `peaks/` tooling directory must not enter
 commits.
+
+## Renderer and playback boundary
+
+The playback pipeline is model <- search contract <- trace <- render <- controller.
+`trace` folds contract events without knowing a solver implementation. `render`
+imports only its own modules, model, trace and search-contract types. Generation
+and search import nothing from render or controller; `render/import-boundary.test.ts`
+enforces these boundaries. Wall masks in the view model use N=1, E=2, S=4, W=8
+for walls present (the inverse of model passage bits).
+
+The DOM-free controller receives its generator, solver descriptors, frame scheduler
+and render callback by injection. Replay uses the recorded event log. Drawing uses
+CSS pixels through DrawingSurface; Canvas owns device pixel ratio and explicit
+resize. Browser frame globals are resolved only when createAnimationFrameScheduler
+is called. DOM mounting and lifecycle handling belong to the later mount layer.

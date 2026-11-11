@@ -56,7 +56,11 @@ it('dims the explored region when cancelled', () => {
 
 it('adapts backing size and drawing coordinates to injected device pixel ratios without a DOM', () => {
   const canvas = { width: 300, height: 150, style: { width: '', height: '' } };
-  const ctx = { setTransform: vi.fn(), clearRect: vi.fn(), fillRect: vi.fn() };
+  const ctx = {
+    setTransform: vi.fn(), clearRect: vi.fn(), fillRect: vi.fn(), beginPath: vi.fn(),
+    moveTo: vi.fn(), lineTo: vi.fn(), stroke: vi.fn(), arc: vi.fn(), fill: vi.fn(),
+    fillStyle: '', strokeStyle: '', lineWidth: 0,
+  };
   // Structural fakes exercise only the Canvas boundary methods used here.
   const surface = createCanvasSurface(canvas as HTMLCanvasElement, ctx as unknown as CanvasRenderingContext2D, 2);
   expect(ctx.setTransform).toHaveBeenLastCalledWith(2, 0, 0, 2, 0, 0);
@@ -66,4 +70,17 @@ it('adapts backing size and drawing coordinates to injected device pixel ratios 
   expect(ctx.setTransform).toHaveBeenLastCalledWith(1.5, 0, 0, 1.5, 0, 0);
   surface.clear('#fff');
   expect(ctx.fillRect).toHaveBeenLastCalledWith(0, 0, 101.5, 50.5);
+  surface.fillRect({ x: 5, y: 6, width: 7, height: 8 }, '#123');
+  expect(ctx.fillRect).toHaveBeenLastCalledWith(5, 6, 7, 8);
+  surface.strokeLines([{ from: { x: 1, y: 2 }, to: { x: 3, y: 4 } }], '#456', 2);
+  expect(ctx.moveTo).toHaveBeenLastCalledWith(1, 2);
+  expect(ctx.lineTo).toHaveBeenLastCalledWith(3, 4);
+  surface.fillCircle({ x: 10, y: 20 }, 3, '#789');
+  expect(ctx.arc).toHaveBeenLastCalledWith(10, 20, 3, 0, Math.PI * 2);
+  surface.polyline([{ x: 5, y: 6 }, { x: 7, y: 8 }], '#abc', 4);
+  expect(ctx.moveTo).toHaveBeenLastCalledWith(5, 6);
+  expect(ctx.lineTo).toHaveBeenLastCalledWith(7, 8);
+  expect(ctx.strokeStyle).toBe('#abc');
+  expect(ctx.lineWidth).toBe(4);
+  expect(() => surface.resize({ width: 10, height: 10, dpr: 0 })).toThrow(RangeError);
 });

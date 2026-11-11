@@ -68,3 +68,13 @@ export { computeLayout } from './render/layout';
 export type { MazeLayout } from './render/layout';
 export { palette } from './render/palette';
 export { drawMaze } from './render/draw-maze';
+export { advanceAccumulator } from './controller/accumulator';
+export type { AccumulatorInput, AccumulatorResult } from './controller/accumulator';
+export { createAnimationFrameScheduler } from './controller/frame-scheduler';
+export type { FrameScheduler, FrameHandle } from './controller/frame-scheduler';
+export type { PlaybackState } from './controller/playback-state';
+export { createController } from './controller/controller';
+export type {
+  CornrowController, ControllerOptions, ControllerSnapshot, ControllerEvent,
+  ControllerListener, MazeGeneration,
+} from './controller/controller';
