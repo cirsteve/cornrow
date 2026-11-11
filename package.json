@@ -1,0 +1,38 @@
+{
+  "name": "@cirsteve/cornrow",
+  "version": "0.1.0",
+  "type": "module",
+  "packageManager": "bun@1.3.13",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:package": "bun run build && node scripts/check-package-types.mjs",
+    "dev": "vite demo",
+    "build": "vite build && tsc -p tsconfig.build.json",
+    "prepack": "bun run build",
+    "example:pack": "npm pack --pack-destination examples/host-page && npm install --prefix examples/host-page --package-lock=false --ignore-scripts --offline"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vite": "^7.3.1",
+    "vitest": "^4.0.18",
+    "happy-dom": "^20.8.4"
+  },
+  "license": "MIT",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/cornrow.js"
+    }
+  },
+  "module": "./dist/cornrow.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "sideEffects": false,
+  "publishConfig": {
+    "access": "public"
+  }
+}

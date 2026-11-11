@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Cornrow — an embeddable maze</title>
+    <style>
+      body { margin: 0; background: #f8f6ef; color: #172b21; font: 1rem/1.6 system-ui, sans-serif; }
+      main { max-width: 48rem; margin: 2rem auto; padding: 0 1rem 3rem; }
+      h1 { margin-bottom: .4rem; }
+      p { max-width: 42rem; }
+      #maze { width: 100%; margin: 1.5rem 0; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Cornrow</h1>
+      <p>A small maze, at home on an ordinary page. Generate a new seed, compare search algorithms, or replay a seed of your own.</p>
+      <div id="maze"></div>
+      <p>Use the native controls with your keyboard or touch. Playback rests when this maze is off-screen or the page is hidden. With reduced motion enabled, Solve finishes immediately and Step lets you explore at your own pace.</p>
+    </main>
+    <script type="module" src="/main.ts"></script>
+  </body>
+</html>
