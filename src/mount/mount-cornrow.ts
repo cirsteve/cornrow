@@ -132,7 +132,7 @@ export function mountCornrow(element: HTMLElement, initialOptions: MountOptions 
 
   function syncFields(): void {
     controls.seed.value = String(options.seed);
-    controls.size.value = options.rows === options.cols ? String(options.rows) : '';
+    controls.setSize(options.rows, options.cols);
     controls.algorithm.value = options.solver;
     controls.speed.value = String(options.stepsPerSecond);
   }
@@ -181,9 +181,10 @@ export function mountCornrow(element: HTMLElement, initialOptions: MountOptions 
     options = normaliseMountOptions({ ...options, solver: controls.algorithm.value as SolverId }, options.seed);
     controls.algorithm.value = options.solver; updateText();
   });
-  disposables.listen(controls.size, 'change', () => handle.generate({
-    rows: Number(controls.size.value), cols: Number(controls.size.value), seed: controls.seed.value,
-  }));
+  disposables.listen(controls.size, 'change', () => {
+    if (controls.size.value === '') return;
+    handle.generate({ rows: Number(controls.size.value), cols: Number(controls.size.value), seed: controls.seed.value });
+  });
   disposables.listen(controls.step, 'click', () => {
     if (!reduced || destroyed) return;
     runningIntent = false;

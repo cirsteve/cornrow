@@ -153,6 +153,29 @@ describe('mounted controls and lifecycle', () => {
     expect(globals.context.lineTo.mock.calls).toEqual(initialWalls.ends);
   });
 
+  it.each([[5, 5], [15, 15], [10, 20]])('shows current dimensions for a %s × %s mount and keeps square presets usable', (rows, cols) => {
+    handle.destroy(); handle = mountCornrow(host, { seed: 'custom-size', rows, cols });
+    const shadow = host.firstElementChild?.shadowRoot;
+    if (!shadow) throw new Error('Missing shadow root');
+    root = shadow;
+    const size = query<HTMLSelectElement>('select');
+    expect(size.selectedOptions[0]?.textContent).toBe(`${rows} × ${cols} (current)`);
+    expect(size.selectedOptions[0]?.disabled).toBe(true);
+    expect(Array.from(size.options).filter(option => !option.disabled).map(option => option.value))
+      .toEqual(['10', '20', '30', '40', '60', '80']);
+    handle.generate({ rows: 17, cols: 23, seed: 'custom-size' });
+    expect(size.selectedOptions[0]?.textContent).toBe('17 × 23 (current)');
+    expect(size.options).toHaveLength(7);
+    query('form').dispatchEvent(new Event('submit', { cancelable: true }));
+    expect(size.selectedOptions[0]?.textContent).toBe('17 × 23 (current)');
+    const events: ControllerEvent[] = []; handle.on(event => events.push(event));
+    size.value = '20'; size.dispatchEvent(new Event('change'));
+    expect(size.selectedOptions[0]?.textContent).toBe('20 × 20');
+    expect(size.options).toHaveLength(6);
+    expect(events.filter(event => event.type === 'generated').at(-1)?.generation)
+      .toMatchObject({ seed: 'custom-size', environment: { rows: 20, cols: 20 } });
+  });
+
   it('applies size and speed immediately and selects the next solver', () => {
     const events: ControllerEvent[] = []; handle.on(event => events.push(event));
     const size = query<HTMLSelectElement>('select'); size.value = '20'; size.dispatchEvent(new Event('change'));
