@@ -26,22 +26,25 @@ export function instrumentGlobals({ contextAvailable = true, reducedMotion = fal
   const captureOf = (options?: boolean | EventListenerOptions): boolean => typeof options === 'boolean' ? options : options?.capture ?? false;
   // Cover globals, root and created elements (including shadow roots). Dedupe
   // records when an implementation delegates through another wrapped prototype.
-  for (const target of [EventTarget.prototype, HTMLElement.prototype, ShadowRoot.prototype, window, document, document.documentElement]) {
-    const add = target.addEventListener;
-    const remove = target.removeEventListener;
-    vi.spyOn(target, 'addEventListener').mockImplementation(function (this: EventTarget, type: string, listener: RegisteredListener, options?: boolean | AddEventListenerOptions) {
+  const targets = [EventTarget.prototype, HTMLElement.prototype, ShadowRoot.prototype, window, document, document.documentElement].map(target => ({
+    target, add: target.addEventListener, remove: target.removeEventListener,
+    addDescriptor: Object.getOwnPropertyDescriptor(target, 'addEventListener'),
+    removeDescriptor: Object.getOwnPropertyDescriptor(target, 'removeEventListener'),
+  }));
+  for (const { target, add, remove } of targets) {
+    Object.defineProperty(target, 'addEventListener', { configurable: true, writable: true, value: function (this: EventTarget, type: string, listener: RegisteredListener, options?: boolean | AddEventListenerOptions) {
       const capture = captureOf(options);
       if (listener && !registrations.some(r => r.target === this && r.type === type && r.listener === listener && r.capture === capture)) {
         const record = { target: this, type, listener, capture };
         registrations.push(record); history.push(record);
       }
       if (listener) add.call(this, type, listener, options);
-    });
-    vi.spyOn(target, 'removeEventListener').mockImplementation(function (this: EventTarget, type: string, listener: RegisteredListener, options?: boolean | EventListenerOptions) {
+    } });
+    Object.defineProperty(target, 'removeEventListener', { configurable: true, writable: true, value: function (this: EventTarget, type: string, listener: RegisteredListener, options?: boolean | EventListenerOptions) {
       const index = registrations.findIndex(r => r.target === this && r.type === type && r.listener === listener && r.capture === captureOf(options));
       if (index >= 0) registrations.splice(index, 1);
       if (listener) remove.call(this, type, listener, options);
-    });
+    } });
   }
   vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
     frameRequests += 1;
@@ -101,6 +104,14 @@ export function instrumentGlobals({ contextAvailable = true, reducedMotion = fal
       expect(document.head.innerHTML).toBe(head); expect(document.styleSheets.length).toBe(sheets);
       expect(history.filter(r => (r.target === window || r.target === document) && /^key(?:down|up)$/.test(r.type))).toEqual([]);
     },
-    restore() { vi.restoreAllMocks(); vi.unstubAllGlobals(); },
+    restore() {
+      vi.restoreAllMocks(); vi.unstubAllGlobals();
+      for (const { target, addDescriptor, removeDescriptor } of targets.reverse()) {
+        if (addDescriptor) Object.defineProperty(target, 'addEventListener', addDescriptor);
+        else Reflect.deleteProperty(target, 'addEventListener');
+        if (removeDescriptor) Object.defineProperty(target, 'removeEventListener', removeDescriptor);
+        else Reflect.deleteProperty(target, 'removeEventListener');
+      }
+    },
   };
 }
