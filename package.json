@@ -1,20 +1,36 @@
 {
-  "name": "cornrow",
+  "name": "@cirsteve/cornrow",
   "version": "0.1.0",
-  "private": true,
   "type": "module",
   "packageManager": "bun@1.3.13",
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "dev": "vite demo"
+    "dev": "vite demo",
+    "build": "vite build && tsc -p tsconfig.build.json",
+    "prepack": "bun run build"
   },
-  "dependencies": {},
   "devDependencies": {
     "typescript": "^5.9.3",
     "vite": "^7.3.1",
     "vitest": "^4.0.18",
     "happy-dom": "^20.8.4"
+  },
+  "license": "MIT",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/cornrow.js"
+    }
+  },
+  "module": "./dist/cornrow.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "sideEffects": false,
+  "publishConfig": {
+    "access": "public"
   }
 }
