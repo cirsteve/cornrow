@@ -21,7 +21,7 @@ it('describes idle, running and paused playback', () => {
 });
 
 it('normalises options purely with injected seed entropy and bounded dimensions/speed', () => {
-  expect(normaliseMountOptions({}, 'fresh')).toEqual({ seed: 'fresh', rows: 20, cols: 20, solver: 'bfs', stepsPerSecond: 60, label: 'Cornrow maze' });
+  expect(normaliseMountOptions({}, 'fresh')).toEqual({ mode: 'interactive', seed: 'fresh', rows: 20, cols: 20, solver: 'bfs', stepsPerSecond: 60, label: 'Cornrow maze' });
   expect(normaliseMountOptions({ rows: NaN, cols: Infinity, solver: 'unknown' as SolverId, stepsPerSecond: -5, seed: '' }, 'unused'))
     .toMatchObject({ rows: 5, cols: 80, solver: 'bfs', stepsPerSecond: 1, seed: '' });
   expect(normaliseMountOptions({ rows: 3, cols: 100, stepsPerSecond: NaN }, 'seed')).toMatchObject({ rows: 5, cols: 80, stepsPerSecond: 60 });

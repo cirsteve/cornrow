@@ -1,5 +1,6 @@
 export const mountStyles = `
 :host { display: block; color: #172b21; font: 1rem/1.5 system-ui, sans-serif; }
+:host([data-mode=background]) { opacity: 0.35; }
 * { box-sizing: border-box; }
 canvas { display: block; max-width: 100%; border-radius: .5rem; }
 form { display: flex; flex-wrap: wrap; align-items: end; gap: .65rem; margin-top: .8rem; }

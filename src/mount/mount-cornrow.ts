@@ -7,6 +7,7 @@ import { drawMaze } from '../render/draw-maze';
 import { selectViewModel } from '../render/select-view-model';
 import type { MazeViewModel } from '../render/view-model';
 import { getSolver, solverRegistry } from '../search/registry';
+import { createBackgroundLoop, type BackgroundLoop } from './background-loop';
 import { createControls } from './controls';
 import { Disposables } from './disposables';
 import { createFallbackSummary } from './fallback-summary';
@@ -33,13 +34,18 @@ export function mountCornrow(element: HTMLElement, initialOptions: MountOptions 
   const disposables = new Disposables();
   let options = normaliseMountOptions(initialOptions, initialOptions.seed ?? randomSeed());
   const wrapper = document.createElement('div'); wrapper.setAttribute('data-cornrow', '');
+  const background = options.mode === 'background';
+  wrapper.setAttribute('data-mode', options.mode);
+  if (background) { wrapper.style.pointerEvents = 'none'; wrapper.setAttribute('aria-hidden', 'true'); }
   const shadow = wrapper.attachShadow({ mode: 'open' });
   const style = document.createElement('style'); style.textContent = mountStyles;
   const canvas = document.createElement('canvas'); canvas.setAttribute('role', 'img');
-  const controls = createControls(document, options);
-  const status = document.createElement('p'); status.className = 'status'; status.setAttribute('aria-live', 'polite');
+  const controls = background ? null : createControls(document, options);
+  const status = background ? null : document.createElement('p');
+  if (status) { status.className = 'status'; status.setAttribute('aria-live', 'polite'); }
   const fallback = createFallbackSummary(document);
-  shadow.append(style, canvas, fallback.element, controls.form, status);
+  shadow.append(style, canvas, fallback.element);
+  if (controls && status) shadow.append(controls.form, status);
   element.append(wrapper);
   disposables.add(() => wrapper.remove());
 
@@ -52,7 +58,8 @@ export function mountCornrow(element: HTMLElement, initialOptions: MountOptions 
   canvas.hidden = surface === null; fallback.element.hidden = surface !== null;
   let controller: CornrowController | null = null;
   let destroyed = false;
-  let runningIntent = false;
+  let runningIntent = background;
+  let loop: BackgroundLoop | null = null;
   let suspended = false;
   let reduced = false;
   const canAnimate = typeof globalThis.requestAnimationFrame === 'function' && typeof globalThis.cancelAnimationFrame === 'function';
@@ -80,8 +87,8 @@ export function mountCornrow(element: HTMLElement, initialOptions: MountOptions 
     const label = solverLabel();
     canvas.setAttribute('aria-label', `${options.label}: ${rows} × ${cols} maze, seed ${snapshot.generation.seed}, ${label}`);
     const text = describeOutcome(snapshot.playback, label);
-    if (status.textContent !== text) status.textContent = text;
-    controls.update(snapshot.playback, reduced);
+    if (status && status.textContent !== text) status.textContent = text;
+    controls?.update(snapshot.playback, reduced);
     if (surface === null) fallback.update(snapshot, label);
   }
   function paint(view: MazeViewModel): void {
@@ -112,16 +119,19 @@ export function mountCornrow(element: HTMLElement, initialOptions: MountOptions 
 
   function reconcilePlayback(): void {
     if (destroyed) return;
-    if (!runningIntent || suspended) { playback.pause(); return; }
-    if (synchronous()) { playback.runToEnd(); return; }
+    if (!runningIntent || suspended) { loop?.stop(); playback.pause(); return; }
+    if (synchronous()) { loop?.stop(); playback.runToEnd(); return; }
+    loop?.start();
     playback.resume();
   }
   reduced = trackReducedMotion(disposables, value => {
     if (destroyed) return;
     reduced = value;
-    // Preference changes cancel animation now; completion happens on the next
-    // Solve/Resume action. Turning animation back on respects user pause intent.
-    if (reduced) playback.pause();
+    if (background) {
+      loop?.restart();
+      if (reduced) { playback.pause(); playback.runToEnd(); }
+      else reconcilePlayback();
+    } else if (reduced) playback.pause();
     else reconcilePlayback();
     updateText();
   });
@@ -131,6 +141,7 @@ export function mountCornrow(element: HTMLElement, initialOptions: MountOptions 
   } });
 
   function syncFields(): void {
+    if (!controls) return;
     controls.seed.value = String(options.seed);
     controls.setSize(options.rows, options.cols);
     controls.algorithm.value = options.solver;
@@ -139,25 +150,28 @@ export function mountCornrow(element: HTMLElement, initialOptions: MountOptions 
   const handle: CornrowHandle = {
     generate(next = {}) {
       if (destroyed) return;
-      runningIntent = false;
-      options = normaliseMountOptions({ ...options, ...next, seed: next.seed ?? randomSeed() }, options.seed);
+      runningIntent = background;
+      loop?.restart();
+      options = normaliseMountOptions({ ...options, ...next, mode: options.mode, seed: next.seed ?? randomSeed() }, options.seed);
       syncFields(); playback.setSpeed(options.stepsPerSecond);
       playback.generate({ seed: options.seed, rows: options.rows, cols: options.cols });
+      if (background) reconcilePlayback();
     },
     solve(id = options.solver) {
       if (destroyed) return;
       options = normaliseMountOptions({ ...options, solver: id }, options.seed);
-      controls.algorithm.value = options.solver;
+      if (controls) controls.algorithm.value = options.solver;
+      loop?.restart('solving');
       runningIntent = true;
       playback.solve(options.solver);
       reconcilePlayback();
     },
-    pause() { if (!destroyed) { runningIntent = false; playback.pause(); } },
+    pause() { if (!destroyed) { runningIntent = false; loop?.stop(); playback.pause(); } },
     resume() {
-      if (destroyed || playback.getSnapshot().playback.kind !== 'paused') return;
+      if (destroyed || (!background && playback.getSnapshot().playback.kind !== 'paused')) return;
       runningIntent = true; reconcilePlayback();
     },
-    reset() { if (!destroyed) { runningIntent = false; playback.reset(); } },
+    reset() { if (!destroyed) { runningIntent = false; loop?.restart(); playback.reset(); } },
     on(listener) { return destroyed ? () => {} : disposables.add(playback.on(listener)); },
     destroy() {
       if (destroyed) return;
@@ -165,33 +179,43 @@ export function mountCornrow(element: HTMLElement, initialOptions: MountOptions 
       disposables.dispose();
     },
   };
-  disposables.listen(controls.generate, 'click', () => handle.generate());
-  disposables.listen(controls.solve, 'click', () => handle.solve());
-  disposables.listen(controls.pause, 'click', () => playback.getSnapshot().playback.kind === 'paused' ? handle.resume() : handle.pause());
-  disposables.listen(controls.reset, 'click', () => handle.reset());
-  disposables.listen(controls.form, 'submit', event => {
-    event.preventDefault(); handle.generate({ seed: controls.seed.value });
-  });
-  disposables.listen(controls.speed, 'input', () => {
-    options = normaliseMountOptions({ ...options, stepsPerSecond: controls.speed.valueAsNumber }, options.seed);
-    playback.setSpeed(options.stepsPerSecond); controls.speed.value = String(options.stepsPerSecond);
-  });
-  disposables.listen(controls.algorithm, 'change', () => {
-    options = normaliseMountOptions({ ...options, solver: controls.algorithm.value as SolverId }, options.seed);
-    controls.algorithm.value = options.solver; updateText();
-  });
-  disposables.listen(controls.size, 'change', () => {
-    if (controls.size.value === '') return;
-    handle.generate({ rows: Number(controls.size.value), cols: Number(controls.size.value), seed: controls.seed.value });
-  });
-  disposables.listen(controls.step, 'click', () => {
-    if (!reduced || destroyed) return;
-    runningIntent = false;
-    const state = playback.getSnapshot().playback;
-    if (state.kind === 'finished') playback.replay();
-    else if (state.kind === 'idle') playback.solve(options.solver);
-    playback.pause(); playback.step();
-  });
+  if (background) {
+    loop = createBackgroundLoop({ playback, scheduler, regenerate: () => {
+      options = normaliseMountOptions({ ...options, seed: randomSeed() }, options.seed);
+      playback.generate({ seed: options.seed, rows: options.rows, cols: options.cols });
+    } });
+    disposables.add(() => loop?.dispose());
+    reconcilePlayback();
+  }
+  if (controls) {
+    disposables.listen(controls.generate, 'click', () => handle.generate());
+    disposables.listen(controls.solve, 'click', () => handle.solve());
+    disposables.listen(controls.pause, 'click', () => playback.getSnapshot().playback.kind === 'paused' ? handle.resume() : handle.pause());
+    disposables.listen(controls.reset, 'click', () => handle.reset());
+    disposables.listen(controls.form, 'submit', event => {
+      event.preventDefault(); handle.generate({ seed: controls.seed.value });
+    });
+    disposables.listen(controls.speed, 'input', () => {
+      options = normaliseMountOptions({ ...options, stepsPerSecond: controls.speed.valueAsNumber }, options.seed);
+      playback.setSpeed(options.stepsPerSecond); controls.speed.value = String(options.stepsPerSecond);
+    });
+    disposables.listen(controls.algorithm, 'change', () => {
+      options = normaliseMountOptions({ ...options, solver: controls.algorithm.value as SolverId }, options.seed);
+      controls.algorithm.value = options.solver; updateText();
+    });
+    disposables.listen(controls.size, 'change', () => {
+      if (controls.size.value === '') return;
+      handle.generate({ rows: Number(controls.size.value), cols: Number(controls.size.value), seed: controls.seed.value });
+    });
+    disposables.listen(controls.step, 'click', () => {
+      if (!reduced || destroyed) return;
+      runningIntent = false;
+      const state = playback.getSnapshot().playback;
+      if (state.kind === 'finished') playback.replay();
+      else if (state.kind === 'idle') playback.solve(options.solver);
+      playback.pause(); playback.step();
+    });
+  }
   syncFields();
   redraw();
   return handle;
