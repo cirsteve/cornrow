@@ -78,3 +78,6 @@ export type {
   CornrowController, ControllerOptions, ControllerSnapshot, ControllerEvent,
   ControllerListener, MazeGeneration,
 } from './controller/controller';
+export { mountCornrow } from './mount/mount-cornrow';
+export type { CornrowHandle } from './mount/mount-cornrow';
+export type { MountOptions } from './mount/options';
