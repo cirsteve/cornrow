@@ -129,8 +129,7 @@ export function mountCornrow(element: HTMLElement, initialOptions: MountOptions 
     reduced = value;
     if (background) {
       loop?.restart();
-      if (reduced) { playback.pause(); playback.runToEnd(); }
-      else reconcilePlayback();
+      reconcilePlayback();
     } else if (reduced) playback.pause();
     else reconcilePlayback();
     updateText();

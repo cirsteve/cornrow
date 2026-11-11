@@ -90,3 +90,32 @@ it('shows a static solved frame under live reduced motion, with no requested or 
     handle.destroy(); globals.assertBalanced(host);
   } finally { handle.destroy(); globals.restore(); }
 });
+
+it.each(['paused', 'off-screen', 'hidden'] as const)('defers a reduced-motion solve while %s until playback is allowed', reason => {
+  const globals = instrumentGlobals(); const host = document.createElement('div');
+  const handle = mountCornrow(host, { mode: 'background', seed: 'cornrow', rows: 5, cols: 5 });
+  try {
+    const events: ControllerEvent[] = []; handle.on(event => events.push(event));
+    globals.frame(0); globals.frame(100); globals.frame(200);
+    expect(events.some(event => event.type === 'step')).toBe(true);
+    expect(events.some(event => event.type === 'solved')).toBe(false);
+    if (reason === 'paused') handle.pause();
+    else if (reason === 'off-screen') globals.intersect(false);
+    else globals.visibility(true);
+    const eventCount = events.length;
+    const requests = globals.frameRequests;
+
+    globals.motion(true);
+    expect(events).toHaveLength(eventCount);
+    expect(globals.pendingFrames.size).toBe(0);
+    expect(globals.frameRequests).toBe(requests);
+
+    if (reason === 'paused') handle.resume();
+    else if (reason === 'off-screen') globals.intersect(true);
+    else globals.visibility(false);
+    expect(events.at(-1)).toMatchObject({ type: 'solved', result: { outcome: 'found' } });
+    expect(globals.pendingFrames.size).toBe(0);
+    expect(globals.frameRequests).toBe(requests);
+    handle.destroy(); globals.assertBalanced(host);
+  } finally { handle.destroy(); globals.restore(); }
+});
