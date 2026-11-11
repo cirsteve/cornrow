@@ -1,6 +1,6 @@
-import type { Brand } from '../primitives/brand';
-import { hashSeed } from '../primitives/prng';
-import { err, ok, type Result } from '../primitives/result';
+import type { Brand } from '../primitives/brand.js';
+import { hashSeed } from '../primitives/prng.js';
+import { err, ok, type Result } from '../primitives/result.js';
 
 export type NodeId = Brand<number, 'NodeId'>;
 export type EnvironmentId = Brand<string, 'EnvironmentId'>;

@@ -1,8 +1,8 @@
-import type { SolverId } from '../model/wall-maze';
-import { err, ok, type Result } from '../primitives/result';
-import { astar } from './astar';
-import { bfs } from './bfs';
-import type { SolverDescriptor } from './contract';
+import type { SolverId } from '../model/wall-maze.js';
+import { err, ok, type Result } from '../primitives/result.js';
+import { astar } from './astar.js';
+import { bfs } from './bfs.js';
+import type { SolverDescriptor } from './contract.js';
 
 export interface SolverLookupError {
   readonly operation: 'getSolver';

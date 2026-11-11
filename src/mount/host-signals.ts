@@ -1,4 +1,4 @@
-import type { Disposables } from './disposables';
+import type { Disposables } from './disposables.js';
 
 interface HostSignalsOptions {
   readonly wrapper: HTMLElement;

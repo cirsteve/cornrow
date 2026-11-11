@@ -1,4 +1,4 @@
-import type { ControllerSnapshot } from '../controller/controller';
+import type { ControllerSnapshot } from '../controller/controller.js';
 
 export function createFallbackSummary(document: Document) {
   const element = document.createElement('dl');

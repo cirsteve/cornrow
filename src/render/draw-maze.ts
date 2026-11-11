@@ -1,7 +1,7 @@
-import type { DrawingSurface, Point, Rect, Segment } from './drawing-surface';
-import { computeLayout } from './layout';
-import { palette } from './palette';
-import { WALL_NORTH, WALL_EAST, WALL_SOUTH, WALL_WEST, type MazeViewModel } from './view-model';
+import type { DrawingSurface, Point, Rect, Segment } from './drawing-surface.js';
+import { computeLayout } from './layout.js';
+import { palette } from './palette.js';
+import { WALL_NORTH, WALL_EAST, WALL_SOUTH, WALL_WEST, type MazeViewModel } from './view-model.js';
 
 export function drawMaze(surface: DrawingSurface, view: MazeViewModel): void {
   const { cellSize: size, origin } = computeLayout(view.rows, view.cols, surface.size());

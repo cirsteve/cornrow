@@ -1,6 +1,6 @@
-import type { PlaybackState } from '../controller/playback-state';
-import { solverRegistry } from '../search/registry';
-import type { NormalisedMountOptions } from './options';
+import type { PlaybackState } from '../controller/playback-state.js';
+import { solverRegistry } from '../search/registry.js';
+import type { NormalisedMountOptions } from './options.js';
 
 export function createControls(document: Document, options: NormalisedMountOptions) {
   const form = document.createElement('form');

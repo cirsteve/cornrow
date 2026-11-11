@@ -1,5 +1,5 @@
-import { cellOf, clampGridSize, hasPassage, neighbours, openNeighbours, toNodeId, type NodeId, type WallMaze } from '../model/wall-maze';
-import { err, ok, type Result } from '../primitives/result';
+import { cellOf, clampGridSize, hasPassage, neighbours, openNeighbours, toNodeId, type NodeId, type WallMaze } from '../model/wall-maze.js';
+import { err, ok, type Result } from '../primitives/result.js';
 
 export interface MazeValidationError {
   readonly operation: 'validateWallMaze';

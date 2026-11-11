@@ -1,4 +1,4 @@
-import type { GeneratorId, WallMaze } from '../model/wall-maze';
+import type { GeneratorId, WallMaze } from '../model/wall-maze.js';
 
 export interface WallMazeOptions {
   readonly seed: string | number;

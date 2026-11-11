@@ -1,4 +1,4 @@
-import type { Disposables } from './disposables';
+import type { Disposables } from './disposables.js';
 
 export function trackReducedMotion(disposables: Disposables, changed: (reduced: boolean) => void): boolean {
   if (typeof globalThis.matchMedia !== 'function') return false;

@@ -1,0 +1,8 @@
+{
+  "name": "field-notes-host",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@cirsteve/cornrow": "file:./cirsteve-cornrow-0.1.0.tgz"
+  }
+}

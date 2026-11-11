@@ -1,6 +1,6 @@
-import { buildWallMaze, cellOf, clampGridSize, neighbours, nodeIdOf, type EnvironmentId, type GeneratorId, type NodeId, type PassagePair } from '../model/wall-maze';
-import { createPrng, hashSeed } from '../primitives/prng';
-import type { WallMazeGenerator } from './contract';
+import { buildWallMaze, cellOf, clampGridSize, neighbours, nodeIdOf, type EnvironmentId, type GeneratorId, type NodeId, type PassagePair } from '../model/wall-maze.js';
+import { createPrng, hashSeed } from '../primitives/prng.js';
+import type { WallMazeGenerator } from './contract.js';
 
 export const generatorId = 'recursive-backtracker' as GeneratorId;
 export const generatorVersion = '1';

@@ -1,6 +1,6 @@
-import { hasPassage, toNodeId, type NodeId, type WallMaze } from '../model/wall-maze';
-import { err, ok, type Result } from '../primitives/result';
-import type { Endpoints } from './contract';
+import { hasPassage, toNodeId, type NodeId, type WallMaze } from '../model/wall-maze.js';
+import { err, ok, type Result } from '../primitives/result.js';
+import type { Endpoints } from './contract.js';
 
 export interface PathValidityError {
   readonly operation: 'checkPath';

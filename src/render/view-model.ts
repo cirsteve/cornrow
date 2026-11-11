@@ -1,4 +1,4 @@
-import type { NodeId } from '../model/wall-maze';
+import type { NodeId } from '../model/wall-maze.js';
 
 export const WALL_NORTH = 1;
 export const WALL_EAST = 2;

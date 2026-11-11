@@ -11,7 +11,7 @@ function sourcePath(sourceRoot: string, dependency: string): string {
 }
 
 function isRenderDependency(sourceRoot: string, dependency: string): boolean {
-  return /^(?:render\/|model\/|trace\/|search\/contract(?:\.ts)?$)/.test(sourcePath(sourceRoot, dependency));
+  return /^(?:render\/|model\/|trace\/|search\/contract(?:\.(?:ts|js))?$)/.test(sourcePath(sourceRoot, dependency));
 }
 
 function sources(directory: string): string[] {
@@ -55,7 +55,7 @@ it('keeps generation and search independent of render and controller', () => {
 
 it.each(['checkout(copy)', 'checkout[copy]', 'checkout+copy', 'checkout.copy'])('checks boundaries inside %s without interpreting the checkout path', checkout => {
   const sourceRoot = resolve(checkout, 'src');
-  for (const allowed of ['render/layout.ts', 'model/wall-maze', 'trace/trace-state', 'search/contract', 'search/contract.ts']) {
+  for (const allowed of ['render/layout.ts', 'model/wall-maze', 'trace/trace-state', 'search/contract', 'search/contract.ts', 'search/contract.js']) {
     expect(isRenderDependency(sourceRoot, resolve(sourceRoot, allowed))).toBe(true);
   }
   for (const forbidden of ['search/bfs', 'search/astar', 'search/registry', 'search/contract-extra', 'controller/controller', '../other/src/model/wall-maze']) {
