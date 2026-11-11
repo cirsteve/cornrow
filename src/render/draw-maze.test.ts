@@ -100,3 +100,23 @@ it('adapts backing size and drawing coordinates to injected device pixel ratios 
   expect(ctx.lineWidth).toBe(4);
   expect(() => surface.resize({ width: 10, height: 10, dpr: 0 })).toThrow(RangeError);
 });
+
+it('draws walls with the same caps and joins before and after path drawing', () => {
+  const canvas = { width: 300, height: 150, style: { width: '', height: '' } };
+  const strokes: { cap: string; join: string }[] = [];
+  const ctx = {
+    setTransform: vi.fn(), beginPath: vi.fn(), moveTo: vi.fn(), lineTo: vi.fn(),
+    lineCap: 'square', lineJoin: 'bevel', strokeStyle: '', lineWidth: 0,
+    stroke() { strokes.push({ cap: this.lineCap, join: this.lineJoin }); },
+  };
+  const surface = createCanvasSurface(canvas as HTMLCanvasElement, ctx as unknown as CanvasRenderingContext2D, 1);
+  const segments = [{ from: { x: 0, y: 0 }, to: { x: 10, y: 10 } }];
+  surface.strokeLines(segments, palette.walls, 2);
+  surface.polyline([{ x: 0, y: 0 }, { x: 10, y: 10 }], palette.path, 4);
+  surface.strokeLines(segments, palette.walls, 2);
+  expect(strokes).toEqual([
+    { cap: 'butt', join: 'miter' },
+    { cap: 'round', join: 'round' },
+    { cap: 'butt', join: 'miter' },
+  ]);
+});

@@ -36,6 +36,7 @@ export function createCanvasSurface(canvas: HTMLCanvasElement, ctx: CanvasRender
     fillRect(rect, color) { ctx.fillStyle = color; ctx.fillRect(rect.x, rect.y, rect.width, rect.height); },
     strokeLines(segments, color, width) {
       ctx.beginPath(); ctx.strokeStyle = color; ctx.lineWidth = width;
+      ctx.lineCap = 'butt'; ctx.lineJoin = 'miter';
       for (const { from, to } of segments) { ctx.moveTo(from.x, from.y); ctx.lineTo(to.x, to.y); }
       ctx.stroke();
     },
