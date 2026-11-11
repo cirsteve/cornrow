@@ -46,4 +46,4 @@ Commit bun.lock. Vitest defaults to node. Future DOM tests opt in per file with
 
 Commit each logical subgoal only after tests and typecheck pass. Stage explicit
 paths, never `git add -A`: the untracked `peaks/` tooling directory must not enter
-commits. Remote git and PR operations go through gated-review tools.
+commits.
