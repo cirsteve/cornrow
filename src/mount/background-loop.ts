@@ -1,6 +1,6 @@
-import type { CornrowController } from '../controller/controller';
-import type { FrameScheduler } from '../controller/frame-scheduler';
-import { solverRegistry } from '../search/registry';
+import type { CornrowController } from '../controller/controller.js';
+import type { FrameScheduler } from '../controller/frame-scheduler.js';
+import { solverRegistry } from '../search/registry.js';
 
 export type BackgroundPhase =
   | { readonly kind: 'generating'; readonly solverIndex: number }

@@ -1,4 +1,4 @@
-import type { NodeId, SolverId, WallMaze } from '../model/wall-maze';
+import type { NodeId, SolverId, WallMaze } from '../model/wall-maze.js';
 
 export interface Endpoints {
   readonly start: NodeId;

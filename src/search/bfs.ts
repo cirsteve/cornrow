@@ -1,6 +1,6 @@
-import { openNeighbours, toNodeId } from '../model/wall-maze';
-import type { Solver } from './contract';
-import { reconstructPath } from './path-validity';
+import { openNeighbours, toNodeId } from '../model/wall-maze.js';
+import type { Solver } from './contract.js';
+import { reconstructPath } from './path-validity.js';
 
 export const bfs: Solver = function* (maze, endpoints) {
   toNodeId(maze, endpoints.start);

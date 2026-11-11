@@ -1,5 +1,5 @@
-import type { NodeId } from '../model/wall-maze';
-import type { TraceEvent } from '../search/contract';
+import type { NodeId } from '../model/wall-maze.js';
+import type { TraceEvent } from '../search/contract.js';
 
 export interface TraceState {
   readonly frontier: ReadonlySet<NodeId>;

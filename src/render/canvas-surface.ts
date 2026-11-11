@@ -1,4 +1,4 @@
-import type { DrawingSurface, Size } from './drawing-surface';
+import type { DrawingSurface, Size } from './drawing-surface.js';
 
 export interface CanvasResize extends Size { readonly dpr: number }
 export interface CanvasSurface extends DrawingSurface {

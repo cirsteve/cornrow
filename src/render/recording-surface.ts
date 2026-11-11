@@ -1,4 +1,4 @@
-import type { DrawingSurface, Point, Rect, Segment, Size } from './drawing-surface';
+import type { DrawingSurface, Point, Rect, Segment, Size } from './drawing-surface.js';
 
 export type DrawingCall =
   | { readonly method: 'clear'; readonly color: string }

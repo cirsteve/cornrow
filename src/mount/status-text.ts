@@ -1,4 +1,4 @@
-import type { PlaybackState } from '../controller/playback-state';
+import type { PlaybackState } from '../controller/playback-state.js';
 
 export function describeOutcome(playback: PlaybackState, solverLabel: string): string {
   switch (playback.kind) {

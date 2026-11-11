@@ -1,7 +1,7 @@
-import type { NodeId, WallMaze } from '../model/wall-maze';
-import type { TraceState } from '../trace/trace-state';
-import { WALL_NORTH, WALL_EAST, WALL_SOUTH, WALL_WEST } from './view-model';
-import type { CellView, MazeViewModel, PlaybackStatus } from './view-model';
+import type { NodeId, WallMaze } from '../model/wall-maze.js';
+import type { TraceState } from '../trace/trace-state.js';
+import { WALL_NORTH, WALL_EAST, WALL_SOUTH, WALL_WEST } from './view-model.js';
+import type { CellView, MazeViewModel, PlaybackStatus } from './view-model.js';
 
 export function selectViewModel(maze: WallMaze, trace: TraceState, playback: PlaybackStatus): MazeViewModel {
   const path = new Set(trace.path ?? []);

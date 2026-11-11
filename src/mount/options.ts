@@ -1,5 +1,5 @@
-import { clampGridSize, type SolverId } from '../model/wall-maze';
-import { getSolver } from '../search/registry';
+import { clampGridSize, type SolverId } from '../model/wall-maze.js';
+import { getSolver } from '../search/registry.js';
 
 export interface MountOptions {
   readonly mode?: 'interactive' | 'background';

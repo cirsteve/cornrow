@@ -120,6 +120,7 @@ bun install --frozen-lockfile
 bun run dev            # playable demo, served by Vite
 bun run test           # Vitest: node by default, happy-dom for mount tests
 bun run test:watch
+bun run test:package   # build, pack and typecheck Node16/NodeNext consumers
 bun run typecheck
 bun run build          # dist/cornrow.js plus dist/index.d.ts and referenced declarations
 bun run example:pack   # pack and install in the static host example

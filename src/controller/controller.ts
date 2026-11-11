@@ -1,12 +1,12 @@
-import type { GenerationResult, WallMazeGenerator, WallMazeOptions } from '../generate/contract';
-import type { SolverId, WallMaze } from '../model/wall-maze';
-import { selectViewModel } from '../render/select-view-model';
-import type { MazeViewModel } from '../render/view-model';
-import { cancelledResult, type SolveResult, type SolverDescriptor, type TraceEvent } from '../search/contract';
-import { applyTraceEvent, initialTraceState, type TraceState } from '../trace/trace-state';
-import { advanceAccumulator } from './accumulator';
-import type { FrameHandle, FrameScheduler } from './frame-scheduler';
-import { finishPlayback, pausePlayback, resumePlayback, type PlaybackState } from './playback-state';
+import type { GenerationResult, WallMazeGenerator, WallMazeOptions } from '../generate/contract.js';
+import type { SolverId, WallMaze } from '../model/wall-maze.js';
+import { selectViewModel } from '../render/select-view-model.js';
+import type { MazeViewModel } from '../render/view-model.js';
+import { cancelledResult, type SolveResult, type SolverDescriptor, type TraceEvent } from '../search/contract.js';
+import { applyTraceEvent, initialTraceState, type TraceState } from '../trace/trace-state.js';
+import { advanceAccumulator } from './accumulator.js';
+import type { FrameHandle, FrameScheduler } from './frame-scheduler.js';
+import { finishPlayback, pausePlayback, resumePlayback, type PlaybackState } from './playback-state.js';
 
 export type MazeGeneration = GenerationResult<WallMaze, WallMazeOptions>;
 export type ControllerEvent =

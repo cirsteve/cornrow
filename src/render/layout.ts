@@ -1,4 +1,4 @@
-import type { Point, Size } from './drawing-surface';
+import type { Point, Size } from './drawing-surface.js';
 
 export interface MazeLayout { readonly cellSize: number; readonly origin: Point }
 

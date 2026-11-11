@@ -1,7 +1,7 @@
-import { cellOf, openNeighbours, toNodeId, type NodeId } from '../model/wall-maze';
-import type { Solver } from './contract';
-import { MinHeap } from './min-heap';
-import { reconstructPath } from './path-validity';
+import { cellOf, openNeighbours, toNodeId, type NodeId } from '../model/wall-maze.js';
+import type { Solver } from './contract.js';
+import { MinHeap } from './min-heap.js';
+import { reconstructPath } from './path-validity.js';
 
 interface FrontierEntry {
   readonly node: NodeId;

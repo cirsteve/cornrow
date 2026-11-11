@@ -1,5 +1,5 @@
-import type { PlaybackStatus } from '../render/view-model';
-import type { SolveResult } from '../search/contract';
+import type { PlaybackStatus } from '../render/view-model.js';
+import type { SolveResult } from '../search/contract.js';
 
 export type PlaybackState = PlaybackStatus;
 export function pausePlayback(state: PlaybackState): PlaybackState {

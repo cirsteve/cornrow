@@ -1,4 +1,4 @@
-import type { FrameScheduler } from '../controller/frame-scheduler';
+import type { FrameScheduler } from '../controller/frame-scheduler.js';
 
 /** Owns registrations; early release also removes them from the collector. */
 export class Disposables {

@@ -1,4 +1,4 @@
-import { buildWallMaze, type PassagePair, type WallMaze } from './wall-maze';
+import { buildWallMaze, type PassagePair, type WallMaze } from './wall-maze.js';
 
 function fixture(passages: readonly PassagePair[]): WallMaze {
   const result = buildWallMaze({ rows: 5, cols: 5, passages });

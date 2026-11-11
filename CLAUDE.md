@@ -108,6 +108,12 @@ contain only dist/, package.json, README.md and LICENSE. `bun run example:pack`
 packs and installs the tarball in the independent static examples/host-page.
 Serve it with `python3 -m http.server 4174 --directory examples/host-page`.
 
+Relative imports and re-exports in shipped source use explicit `.js` specifiers
+so emitted ESM declarations resolve under Node16 and NodeNext. The declaration
+build enforces NodeNext resolution. `bun run test:package` builds, packs and
+typechecks an isolated installed-tarball consumer in both modes with
+`skipLibCheck: false`.
+
 No module reachable from src/index.ts may touch DOM/window globals at load
 time, enforced by src/public-entry.node.test.ts. Browser APIs are resolved only
 inside mount calls (including the injected Canvas and frame-scheduler factories).
