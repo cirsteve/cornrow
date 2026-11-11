@@ -54,6 +54,22 @@ it('dims the explored region when cancelled', () => {
   expect(render({ kind: 'finished', outcome: 'cancelled', pathLength: 0, exploredCount: 1 }, false).calls[1]?.color).toBe(palette.cancelled);
 });
 
+it('keeps both endpoint shapes visible when start and goal share a cell', () => {
+  const surface = new RecordingSurface({ width: 500, height: 500 });
+  const view = selectViewModel(maze, initialTraceState, { kind: 'idle' });
+  drawMaze(surface, { ...view, goal: view.start });
+  const start = surface.calls.find(call => call.color === palette.start);
+  const goal = surface.calls.find(call => call.color === palette.goal);
+  if (start?.method !== 'fillCircle' || goal?.method !== 'strokeLines') throw new Error('Missing combined endpoint glyph');
+  expect(surface.calls.indexOf(start)).toBeLessThan(surface.calls.indexOf(goal));
+  expect(goal.segments).toHaveLength(4);
+  // Every edge's inner stroke boundary lies outside the start circle.
+  for (const { from, to } of goal.segments) {
+    const distance = from.x === to.x ? Math.abs(from.x - start.center.x) : Math.abs(from.y - start.center.y);
+    expect(distance - goal.width / 2).toBeGreaterThan(start.radius);
+  }
+});
+
 it('adapts backing size and drawing coordinates to injected device pixel ratios without a DOM', () => {
   const canvas = { width: 300, height: 150, style: { width: '', height: '' } };
   const ctx = {

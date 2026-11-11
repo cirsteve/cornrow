@@ -38,7 +38,19 @@ export function drawMaze(surface: DrawingSurface, view: MazeViewModel): void {
   });
   surface.strokeLines(walls, palette.walls, wallWidth);
   surface.fillCircle(center(view.start), size * 0.23, palette.start);
-  surface.fillRect(rect(view.goal, size * 0.27), failure ? palette.error : palette.goal);
+  const goalColor = failure ? palette.error : palette.goal;
+  if (view.start === view.goal) {
+    // An outlined goal square surrounds the start circle without covering it.
+    const { x, y, width, height } = rect(view.goal, size * 0.18);
+    surface.strokeLines([
+      { from: { x, y }, to: { x: x + width, y } },
+      { from: { x: x + width, y }, to: { x: x + width, y: y + height } },
+      { from: { x: x + width, y: y + height }, to: { x, y: y + height } },
+      { from: { x, y: y + height }, to: { x, y } },
+    ], goalColor, size * 0.07);
+  } else {
+    surface.fillRect(rect(view.goal, size * 0.27), goalColor);
+  }
   if (failure) {
     const { x, y, width, height } = rect(view.goal, size * 0.15);
     surface.strokeLines([
