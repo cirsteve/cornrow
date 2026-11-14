@@ -1,6 +1,14 @@
 // @vitest-environment node
 import { expect, expectTypeOf, it } from 'vitest';
-import { cellOf, checkPath, generate, getSolver, solve } from './index';
+import {
+  cellOf, checkPath, generate, getSolver, solve,
+  TERRAIN_COSTS, buildTerrainMaze, stepCost, pathCost, braidedTerrain,
+  terrainGeneratorId, terrainGeneratorVersion, validateTerrainMaze, dijkstra,
+} from './index.js';
+import type {
+  TerrainMaze, TerrainCost, Environment, PassageGrid, TerrainBuildError,
+  TerrainOptions, TerrainGenerator, EnvironmentOptions, TerrainValidationError, WallMaze,
+} from './index.js';
 
 it('imports the public entry and generates and solves without a DOM', () => {
   expect(typeof document).toBe('undefined');
@@ -17,15 +25,6 @@ it('imports the public entry and generates and solves without a DOM', () => {
     expect(checkPath(environment, result.path, environment).ok).toBe(true);
   }
 });
-
-import {
-  TERRAIN_COSTS, buildTerrainMaze, stepCost, pathCost, braidedTerrain,
-  terrainGeneratorId, terrainGeneratorVersion, validateTerrainMaze, dijkstra,
-} from './index.js';
-import type {
-  TerrainMaze, TerrainCost, Environment, PassageGrid, TerrainBuildError,
-  TerrainOptions, TerrainGenerator, EnvironmentOptions, TerrainValidationError, WallMaze,
-} from './index.js';
 
 it('exports the terrain core and preserves precise generation types without a DOM', () => {
   const terrain = generate({ kind: 'terrain', seed: 'x', rows: 10, cols: 10 });
