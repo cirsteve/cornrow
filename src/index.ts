@@ -1,5 +1,6 @@
 import type { GenerationResult, WallMazeOptions } from './generate/contract.js';
 import { recursiveBacktracker } from './generate/recursive-backtracker.js';
+import type { Environment } from './model/environment.js';
 import type { SolverId, WallMaze } from './model/wall-maze.js';
 import type { Endpoints, SolveResult, TraceEvent } from './search/contract.js';
 import { getSolver } from './search/registry.js';
@@ -16,7 +17,7 @@ export function generate(options: WallMazeOptions): GenerationResult<WallMaze, W
 /** Drain a registered stepper. Use getSolver to validate user input and obtain a branded id.
  * @throws RangeError when solverId is unknown or an endpoint is outside the maze.
  */
-export function solve(environment: WallMaze, solverId: SolverId, endpoints: Endpoints = environment): SolveTrace {
+export function solve(environment: Environment, solverId: SolverId, endpoints: Endpoints = environment): SolveTrace {
   const descriptor = getSolver(solverId);
   if (!descriptor.ok) throw new RangeError(descriptor.error.detail);
   const iterator = descriptor.value.solver(environment, endpoints);

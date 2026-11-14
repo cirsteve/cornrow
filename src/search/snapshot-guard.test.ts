@@ -21,6 +21,7 @@ it('pins bfs full trace and result for comparisonMaze', () => {
       24
     ],
     "exploredCount": 25,
+    "cost": 8,
     "space": "discrete-graph"
   },
   "events": [
@@ -258,6 +259,7 @@ it('pins astar full trace and result for comparisonMaze', () => {
       24
     ],
     "exploredCount": 9,
+    "cost": 8,
     "space": "discrete-graph"
   },
   "events": [
@@ -381,6 +383,7 @@ it('pins bfs full trace and result for isolatedGoalMaze', () => {
     "outcome": "unreachable",
     "path": [],
     "exploredCount": 8,
+    "cost": null,
     "space": "discrete-graph"
   },
   "events": [
@@ -458,6 +461,7 @@ it('pins astar full trace and result for isolatedGoalMaze', () => {
     "outcome": "unreachable",
     "path": [],
     "exploredCount": 8,
+    "cost": null,
     "space": "discrete-graph"
   },
   "events": [
@@ -545,6 +549,7 @@ it('pins bfs full trace and result for openCorridorMaze', () => {
       24
     ],
     "exploredCount": 9,
+    "cost": 8,
     "space": "discrete-graph"
   },
   "events": [
@@ -654,6 +659,7 @@ it('pins astar full trace and result for openCorridorMaze', () => {
       24
     ],
     "exploredCount": 9,
+    "cost": 8,
     "space": "discrete-graph"
   },
   "events": [
@@ -797,6 +803,7 @@ it('pins bfs full trace and result for cornrow', () => {
       99
     ],
     "exploredCount": 52,
+    "cost": 42,
     "space": "discrete-graph"
   },
   "events": [
@@ -1326,6 +1333,7 @@ it('pins astar full trace and result for cornrow', () => {
       99
     ],
     "exploredCount": 43,
+    "cost": 42,
     "space": "discrete-graph"
   },
   "events": [

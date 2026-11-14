@@ -94,7 +94,7 @@ describe('controller playback', () => {
   it('enforces the 500 step per-frame cap with an injected long-running solver', () => {
     const solver: Solver = function* (maze) {
       for (let i = 0; i < 1200; i += 1) yield { type: 'visit', node: maze.start };
-      return { outcome: 'unreachable', path: [], exploredCount: 1, space: 'discrete-graph' };
+      return { outcome: 'unreachable', path: [], exploredCount: 1, cost: null, space: 'discrete-graph' };
     };
     const { controller, scheduler, onRender } = setup(solver);
     controller.setSpeed(10000); controller.solve(); scheduler.frame(0);
@@ -137,7 +137,7 @@ describe('controller playback', () => {
     const solver: Solver = function* (maze) {
       try { yield { type: 'visit', node: maze.start }; yield { type: 'visit', node: maze.goal }; }
       finally { returned(); }
-      return { outcome: 'unreachable', path: [], exploredCount: 2, space: 'discrete-graph' };
+      return { outcome: 'unreachable', path: [], exploredCount: 2, cost: null, space: 'discrete-graph' };
     };
     const { controller, events, scheduler, injectedGenerator } = setup(solver);
     const environment = controller.getSnapshot().generation.environment;
@@ -282,7 +282,7 @@ describe('controller playback', () => {
     const solver: Solver = function* (maze) {
       try { yield { type: 'visit', node: maze.start }; }
       finally { finalized(); }
-      return { outcome: 'found', path: [maze.start], exploredCount: 1, space: 'discrete-graph' };
+      return { outcome: 'found', path: [maze.start], exploredCount: 1, cost: 0, space: 'discrete-graph' };
     };
     const { controller, scheduler, onRender } = setup(solver);
     const listener = vi.fn();
