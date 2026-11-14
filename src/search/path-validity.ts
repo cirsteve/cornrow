@@ -1,4 +1,4 @@
-import { hasPassage, toNodeId, type NodeId, type WallMaze } from '../model/wall-maze.js';
+import { hasPassage, toNodeId, type NodeId, type PassageGrid } from '../model/wall-maze.js';
 import { err, ok, type Result } from '../primitives/result.js';
 import type { Endpoints } from './contract.js';
 
@@ -8,7 +8,7 @@ export interface PathValidityError {
   readonly index?: number;
 }
 
-export function checkPath(maze: WallMaze, path: readonly NodeId[], endpoints: Endpoints): Result<void, PathValidityError> {
+export function checkPath(maze: PassageGrid, path: readonly NodeId[], endpoints: Endpoints): Result<void, PathValidityError> {
   if (path.length === 0) return err({ operation: 'checkPath', detail: 'Path is empty' });
   if (path[0] !== endpoints.start || path[path.length - 1] !== endpoints.goal) {
     return err({ operation: 'checkPath', detail: 'Path endpoints do not match requested endpoints' });
@@ -30,7 +30,7 @@ export function checkPath(maze: WallMaze, path: readonly NodeId[], endpoints: En
 }
 
 /** Reconstruct a discovered route; parent links are internal solver invariants. */
-export function reconstructPath(maze: WallMaze, parents: Int32Array, endpoints: Endpoints): readonly NodeId[] {
+export function reconstructPath(maze: PassageGrid, parents: Int32Array, endpoints: Endpoints): readonly NodeId[] {
   const path = [endpoints.goal];
   let current = endpoints.goal;
   while (current !== endpoints.start) {

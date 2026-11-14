@@ -19,7 +19,7 @@ it('renders a decorative, noninteractive wrapper with no controls, status or foc
   } finally { handle.destroy(); globals.restore(); }
 });
 
-it('autoplays at 30 steps per second, holds the solution and regenerates with alternating solvers', () => {
+it('autoplays at 30 steps per second, holds the solution and regenerates with cycling solvers', () => {
   const globals = instrumentGlobals(); const host = document.createElement('div');
   const handle = mountCornrow(host, { mode: 'background', seed: 'cornrow', rows: 5, cols: 5 });
   try {
@@ -39,7 +39,13 @@ it('autoplays at 30 steps per second, holds the solution and regenerates with al
     expect(generated).toHaveLength(1);
     expect(generated[0]?.generation.seed).not.toBe('cornrow');
     globals.frame(now += 100);
-    expect(events.filter(event => event.type === 'solve-started').map(event => event.solverId)).toEqual(['bfs', 'astar']);
+    expect(events.filter(event => event.type === 'solve-started').map(event => event.solverId)).toEqual(['bfs', 'dijkstra']);
+    while (events.filter(event => event.type === 'solved').length < 2 && now < 40000) globals.frame(now += 100);
+    expect(events.filter(event => event.type === 'solved')).toHaveLength(2);
+    globals.frame(now += 100);
+    globals.frame(now += 2500);
+    globals.frame(now += 100);
+    expect(events.filter(event => event.type === 'solve-started').map(event => event.solverId)).toEqual(['bfs', 'dijkstra', 'astar']);
     handle.destroy(); globals.assertBalanced(host);
   } finally { handle.destroy(); globals.restore(); }
 });
