@@ -40,7 +40,11 @@ alone. Destroy removes the wrapper and releases listeners, observers,
 subscriptions and animation frames; calling it again is safe.
 
 Options are `mode`, `seed` (string or number), `rows`, `cols`, `solver` (a branded
-id obtained from `getSolver`), `stepsPerSecond`, and the accessible `label`.
+id obtained from `getSolver`), `stepsPerSecond`, `environment`, `openness`, and the accessible `label`.
+`environment` defaults to `'wall-maze'`; choose `'terrain'` for weighted cells.
+`openness` defaults to 0.5 and is clamped to 0–1 (non-finite values use 0.5).
+It controls how many extra passages terrain opens and is retained when switching
+environments. The Environment select regenerates using the displayed seed and size.
 Defaults are interactive mode, a fresh seed, 20 × 20 cells, BFS, and 60 steps per
 second (30 in background mode). Speeds are bounded to 1–500. The returned handle
 has `generate(options?)`, `solve(solverId?)`, `pause()`, `resume()`, `reset()`,
@@ -57,7 +61,7 @@ const decoration = mountCornrow(backgroundHost, { mode: 'background' });
 
 Background mode has no controls, status line, or focusable elements. Its wrapper
 is aria-hidden, ignores pointer input, and has opacity 0.35. It autoplays a slow
-generate → solve → hold → regenerate loop, alternating BFS and A*, holding each
+generate → solve → hold → regenerate loop, cycling BFS, Dijkstra and A*, holding each
 solution for 2.5 seconds of visible playback and choosing a fresh seed each cycle.
 Both modes pause while off-screen or while the document is hidden. Host
 suspension preserves an explicit pause made through the handle.
@@ -112,6 +116,42 @@ absent passages, and passage bits are N=1, E=2, S=4, W=8. Default start is (0,0)
 and default goal is (rows−1, cols−1). Each size is rounded and clamped to 5–80
 cells per side. The renderer's wall masks describe walls present, the inverse
 of model passage bits.
+
+## Terrain
+
+Terrain opens extra passages and assigns entry costs of 1, 2, 4 or 8 to cells.
+The start cell costs nothing. BFS minimises steps; Dijkstra and A* minimise cost.
+Compare their path cost and explored count on the same seed:
+
+```ts
+import { generate, getSolver, solve } from '@cirsteve/cornrow';
+
+const { environment } = generate({ kind: 'terrain', seed: 'cornrow', rows: 10, cols: 10 });
+for (const name of ['bfs', 'dijkstra', 'astar'] as const) {
+  const solver = getSolver(name);
+  if (!solver.ok) throw new Error(solver.error.detail);
+  const id = solver.value.id;
+  const { result } = solve(environment, id);
+  console.log(name, 'steps', result.path.length - 1, 'cost', result.cost, 'explored', result.exploredCount);
+}
+```
+
+In an interactive embed choose **Terrain** beside Algorithm, then run each solver.
+Four green bands run from light (cost 1) to dark (cost 8). At cell sizes of at
+least 14 CSS pixels, 0–3 corner pips also identify the cost band; the legend below
+the controls shows the same colours and pips. Explored cells keep their bands
+visible under translucent overlays. Terrain uses darker markers for contrast.
+Terrain status and the Canvas fallback include path cost. Wall mazes retain
+their existing appearance and status text.
+Background mounts also accept `environment: 'terrain'` and `openness`.
+
+### Breaking changes in 0.2.0
+
+- `Solver` takes `Environment` rather than `WallMaze`.
+- `SolveResult` has `cost` (null for unreachable or cancelled solves).
+- The finished playback status has `pathCost`.
+- The controller generator type changes to `(options: EnvironmentOptions) => GenerationResult<Environment, EnvironmentOptions>`.
+- `CornrowHandle.generate` accepts `environment` and `openness` via `MountOptions`.
 
 ## Development
 

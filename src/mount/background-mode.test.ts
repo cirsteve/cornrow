@@ -12,7 +12,7 @@ it('renders a decorative, noninteractive wrapper with no controls, status or foc
     const wrapper = host.firstElementChild as HTMLElement;
     expect(wrapper.style.pointerEvents).toBe('none');
     expect(wrapper.getAttribute('aria-hidden')).toBe('true');
-    expect(wrapper.shadowRoot?.querySelector('form, .status, [aria-live], button, input, select, a, [tabindex]')).toBeNull();
+    expect(wrapper.shadowRoot?.querySelector('form, .terrain-legend, .status, [aria-live], button, input, select, a, [tabindex]')).toBeNull();
     expect(wrapper.shadowRoot?.querySelector('style')?.textContent).toContain(':host([data-mode=background]) { opacity: 0.35; }');
     expect(globals.pendingFrames.size).toBeGreaterThan(0);
     handle.destroy(); handle.destroy(); globals.assertBalanced(host);
@@ -122,6 +122,23 @@ it.each(['paused', 'off-screen', 'hidden'] as const)('defers a reduced-motion so
     expect(events.at(-1)).toMatchObject({ type: 'solved', result: { outcome: 'found' } });
     expect(globals.pendingFrames.size).toBe(0);
     expect(globals.frameRequests).toBe(requests);
+    handle.destroy(); globals.assertBalanced(host);
+  } finally { handle.destroy(); globals.restore(); }
+});
+
+it('regenerates terrain on each background cycle and releases resources after switching environment', () => {
+  const globals = instrumentGlobals(); const host = document.createElement('div');
+  const handle = mountCornrow(host, { mode: 'background', environment: 'terrain', seed: 'cornrow', rows: 5, cols: 5, stepsPerSecond: 500 });
+  try {
+    expect(host.firstElementChild?.shadowRoot?.querySelector('.terrain-legend')).toBeNull();
+    const events: ControllerEvent[] = []; handle.on(event => events.push(event));
+    let now = 0;
+    while (events.filter(event => event.type === 'generated').length < 3 && now < 30000) globals.frame(now += 100);
+    const generations = events.filter(event => event.type === 'generated');
+    expect(generations).toHaveLength(3);
+    expect(generations.every(event => event.generation.environment.kind === 'terrain')).toBe(true);
+    handle.generate({ environment: 'wall-maze', seed: 'switch' });
+    expect(events.filter(event => event.type === 'generated').at(-1)?.generation.environment.kind).toBe('wall-maze');
     handle.destroy(); globals.assertBalanced(host);
   } finally { handle.destroy(); globals.restore(); }
 });

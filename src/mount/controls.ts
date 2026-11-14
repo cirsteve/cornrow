@@ -40,10 +40,16 @@ export function createControls(document: Document, options: NormalisedMountOptio
     algorithm.append(option);
   }
   algorithm.value = options.solver;
+  const environment = labelled('Environment', document.createElement('select'));
+  for (const [value, text] of [['wall-maze', 'Maze'], ['terrain', 'Terrain']] as const) {
+    const option = document.createElement('option'); option.value = value; option.textContent = text;
+    environment.append(option);
+  }
+  environment.value = options.environment;
   const seed = labelled('Seed', document.createElement('input')); seed.type = 'text'; seed.value = String(options.seed);
   const step = button('Step'); step.hidden = true;
   return {
-    form, generate, solve, pause, reset, speed, size, algorithm, seed, step, setSize,
+    form, generate, solve, pause, reset, speed, size, algorithm, environment, seed, step, setSize,
     update(playback: PlaybackState, reduced: boolean): void {
       const paused = playback.kind === 'paused';
       pause.textContent = paused ? 'Resume' : 'Pause';
