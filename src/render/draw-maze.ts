@@ -3,6 +3,12 @@ import { computeLayout } from './layout.js';
 import { palette } from './palette.js';
 import { WALL_NORTH, WALL_EAST, WALL_SOUTH, WALL_WEST, type MazeViewModel } from './view-model.js';
 
+/** Cell-relative circles shared by the terrain canvas and its legend. */
+export function terrainPips(band: 0 | 1 | 2 | 3): readonly { readonly center: Point; readonly radius: number }[] {
+  return [{ x: 0.1, y: 0.1 }, { x: 0.9, y: 0.1 }, { x: 0.1, y: 0.9 }]
+    .slice(0, band).map(center => ({ center, radius: 0.04 }));
+}
+
 export function drawMaze(surface: DrawingSurface, view: MazeViewModel): void {
   const { cellSize: size, origin } = computeLayout(view.rows, view.cols, surface.size());
   surface.clear(palette.background);

@@ -2,6 +2,31 @@
 import { it, expect } from 'vitest';
 import { mountCornrow } from './mount-cornrow';
 import { instrumentGlobals } from './test-support/instrument-globals';
+import { createTerrainLegend } from './legend.js';
+import { terrainPips } from '../render/draw-maze.js';
+
+it('builds a noninteractive cost legend with the canvas pip geometry and caller-supplied swatches', () => {
+  // Structural test data, not a proposed terrain palette.
+  const bands = ['#ffffff', '#eeeeee', '#dddddd', '#cccccc'] as const;
+  const legend = createTerrainLegend(document, bands);
+  expect(legend.getAttribute('aria-label')).toBe('Terrain costs');
+  expect(legend.textContent).toBe('Cost 1Cost 2Cost 4Cost 8');
+  expect(legend.querySelectorAll('button,input,select,[tabindex]')).toHaveLength(0);
+  for (const band of [0, 1, 2, 3] as const) {
+    const swatch = legend.querySelectorAll<HTMLElement>('.terrain-swatch')[band];
+    expect(swatch?.getAttribute('aria-hidden')).toBe('true');
+    expect(swatch?.children).toHaveLength(band);
+    const probe = document.createElement('span'); probe.style.backgroundColor = bands[band];
+    expect(swatch?.style.backgroundColor).toBe(probe.style.backgroundColor);
+    terrainPips(band).forEach(({ center, radius }, index) => {
+      const pip = swatch?.children[index] as HTMLElement | undefined;
+      expect(pip?.style.left).toBe(`${(center.x - radius) * 100}%`);
+      expect(pip?.style.top).toBe(`${(center.y - radius) * 100}%`);
+      expect(pip?.style.width).toBe(`${radius * 200}%`);
+      expect(pip?.style.height).toBe(`${radius * 200}%`);
+    });
+  }
+});
 
 it('mounts an isolated wrapper and destroys it idempotently without changing its host', () => {
   const globals = instrumentGlobals();
