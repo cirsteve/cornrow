@@ -17,6 +17,10 @@ export interface GridSize {
   readonly cols: number;
 }
 
+export interface PassageGrid extends GridSize {
+  readonly passages: ReadonlyArray<number>;
+}
+
 export interface WallMaze extends GridSize {
   readonly kind: 'wall-maze';
   readonly id: EnvironmentId;
@@ -88,12 +92,12 @@ function passageBit(grid: GridSize, from: NodeId, to: NodeId): number {
   return 0;
 }
 
-export function hasPassage(maze: WallMaze, from: NodeId, to: NodeId): boolean {
+export function hasPassage(maze: PassageGrid, from: NodeId, to: NodeId): boolean {
   const bit = passageBit(maze, from, to);
   return bit !== 0 && ((maze.passages[from] ?? 0) & bit) !== 0;
 }
 
-export function openNeighbours(maze: WallMaze, node: NodeId): readonly NodeId[] {
+export function openNeighbours(maze: PassageGrid, node: NodeId): readonly NodeId[] {
   return neighbours(maze, node).filter(other => hasPassage(maze, node, other));
 }
 

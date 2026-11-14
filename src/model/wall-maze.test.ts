@@ -65,3 +65,11 @@ describe('wall-maze model', () => {
     expect(() => { (result.value.passages as number[])[0] = 15; }).toThrow(TypeError);
   });
 });
+
+it('accepts a plain structural PassageGrid for passage queries', () => {
+  const grid: import('./wall-maze.js').PassageGrid = { rows: 5, cols: 5, passages: [2, 8, ...Array<number>(23).fill(0)] };
+  const first = toNodeId(grid, 0);
+  const second = toNodeId(grid, 1);
+  expect(hasPassage(grid, first, second)).toBe(true);
+  expect(openNeighbours(grid, first)).toEqual([second]);
+});
