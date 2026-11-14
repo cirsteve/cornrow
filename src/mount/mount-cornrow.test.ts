@@ -56,7 +56,7 @@ describe('mounted controls and lifecycle', () => {
     expect(query('canvas').getAttribute('aria-label')).toContain('10 × 10 maze, seed replay-me, Breadth-first search');
     expect(query('[aria-live]').getAttribute('aria-live')).toBe('polite');
     expect(Array.from(root.querySelectorAll('button,input,select')).map(element => element.tagName === 'BUTTON' ? element.textContent : element.closest('label')?.textContent?.split('10 ×')[0])).toEqual([
-      'Generate', 'Solve', 'Pause', 'Reset', 'Speed', 'Size', 'AlgorithmBreadth-first searchA* (Manhattan)', 'Seed', 'Step',
+      'Generate', 'Solve', 'Pause', 'Reset', 'Speed', 'Size', 'AlgorithmBreadth-first searchDijkstraA* (Manhattan)', 'Seed', 'Step',
     ]);
     expect(Array.from(query<HTMLSelectElement>('select').options).map(option => option.value)).toEqual(['10', '20', '30', '40', '60', '80']);
     expect(button('Pause').disabled).toBe(true);

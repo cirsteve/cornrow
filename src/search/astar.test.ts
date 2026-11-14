@@ -1,14 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { recursiveBacktracker } from '../generate/recursive-backtracker';
-import { comparisonMaze, isolatedGoalMaze, openCorridorMaze } from '../model/fixtures';
-import { nodeIdOf, type WallMaze } from '../model/wall-maze';
+import { comparisonMaze, isolatedGoalMaze, openCorridorMaze, ridgeTerrain } from '../model/fixtures';
+import type { Environment } from '../model/environment.js';
+import { nodeIdOf } from '../model/wall-maze';
 import { astar } from './astar';
 import { bfs } from './bfs';
 import { cancelledResult, type Endpoints, type SolveResult, type Solver, type TraceEvent } from './contract';
 import { checkPath } from './path-validity';
 import { getSolver, solverRegistry } from './registry';
 
-function drain(solver: Solver, maze: WallMaze, endpoints: Endpoints = maze): { events: TraceEvent[]; result: SolveResult } {
+function drain(solver: Solver, maze: Environment, endpoints: Endpoints = maze): { events: TraceEvent[]; result: SolveResult } {
   const iterator = solver(maze, endpoints);
   const events: TraceEvent[] = [];
   let step = iterator.next();
@@ -75,10 +76,17 @@ describe('A* Manhattan stepper and registry', () => {
 
   it('registers both algorithms and returns a contextual lookup error', () => {
     expect(solverRegistry.map(({ id, label }) => [id, label])).toEqual([
-      ['bfs', 'Breadth-first search'], ['astar', 'A* (Manhattan)'],
+      ['bfs', 'Breadth-first search'], ['dijkstra', 'Dijkstra'], ['astar', 'A* (Manhattan)'],
     ]);
     expect(getSolver('astar')).toMatchObject({ ok: true, value: { solver: astar } });
     expect(getSolver('missing')).toEqual({ ok: false, error: { operation: 'getSolver', id: 'missing', detail: 'Unknown solver: missing' } });
     expect(Object.isFrozen(solverRegistry)).toBe(true);
   });
+});
+
+it('takes the eight-step low-cost route through the ridge gap', () => {
+  const { result } = drain(astar, ridgeTerrain);
+  expect(result).toMatchObject({ outcome: 'found', path: [10, 11, 16, 21, 22, 23, 18, 13, 14], cost: 8 });
+  expect(result.path).toHaveLength(9);
+  expect(result.path).toContain(22);
 });
