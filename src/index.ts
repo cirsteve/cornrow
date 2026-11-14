@@ -1,5 +1,7 @@
-import type { GenerationResult, WallMazeOptions } from './generate/contract.js';
-import { recursiveBacktracker } from './generate/recursive-backtracker.js';
+import type { EnvironmentOptions, GenerationResult, WallMazeOptions } from './generate/contract.js';
+import { generateEnvironment } from './generate/environment.js';
+import type { TerrainOptions } from './generate/terrain.js';
+import type { TerrainMaze } from './model/terrain-maze.js';
 import type { Environment } from './model/environment.js';
 import type { SolverId, WallMaze } from './model/wall-maze.js';
 import type { Endpoints, SolveResult, TraceEvent } from './search/contract.js';
@@ -10,8 +12,11 @@ export interface SolveTrace {
   readonly events: readonly TraceEvent[];
 }
 
-export function generate(options: WallMazeOptions): GenerationResult<WallMaze, WallMazeOptions> {
-  return recursiveBacktracker(options);
+export function generate(options: { kind: 'terrain' } & TerrainOptions): GenerationResult<TerrainMaze, Required<TerrainOptions>>;
+export function generate(options: { kind?: 'wall-maze' } & WallMazeOptions): GenerationResult<WallMaze, WallMazeOptions>;
+export function generate(options: EnvironmentOptions): GenerationResult<Environment, WallMazeOptions | Required<TerrainOptions>>;
+export function generate(options: EnvironmentOptions): GenerationResult<Environment, WallMazeOptions | Required<TerrainOptions>> {
+  return generateEnvironment(options);
 }
 
 /** Drain a registered stepper. Use getSolver to validate user input and obtain a branded id.
@@ -41,9 +46,9 @@ export {
 } from './model/wall-maze.js';
 export type {
   WallMaze, GridSize, CellCoord, NodeId, EnvironmentId, GeneratorId, SolverId,
-  WallMazeBuildOptions, MazeBuildError, PassagePair,
+  WallMazeBuildOptions, MazeBuildError, PassagePair, PassageGrid,
 } from './model/wall-maze.js';
-export type { WallMazeGenerator, WallMazeOptions, GenerationResult } from './generate/contract.js';
+export type { WallMazeGenerator, WallMazeOptions, GenerationResult, TerrainGenerator, EnvironmentOptions } from './generate/contract.js';
 export { recursiveBacktracker, generatorId, generatorVersion } from './generate/recursive-backtracker.js';
 export { validateWallMaze } from './generate/validate-maze.js';
 export type { MazeValidationError } from './generate/validate-maze.js';
@@ -82,3 +87,13 @@ export type {
 export { mountCornrow } from './mount/mount-cornrow.js';
 export type { CornrowHandle } from './mount/mount-cornrow.js';
 export type { MountOptions } from './mount/options.js';
+
+export { TERRAIN_COSTS, buildTerrainMaze } from './model/terrain-maze.js';
+export type { TerrainMaze, TerrainCost, TerrainBuildError } from './model/terrain-maze.js';
+export { stepCost, pathCost } from './model/environment.js';
+export type { Environment } from './model/environment.js';
+export { braidedTerrain, terrainGeneratorId, terrainGeneratorVersion } from './generate/terrain.js';
+export type { TerrainOptions } from './generate/terrain.js';
+export { validateTerrainMaze } from './generate/validate-terrain.js';
+export type { TerrainValidationError } from './generate/validate-terrain.js';
+export { dijkstra } from './search/dijkstra.js';

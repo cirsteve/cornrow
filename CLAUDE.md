@@ -38,6 +38,8 @@ Mazes and their passage arrays are frozen at construction.
 
 The documented sample is seed `cornrow` at 10x10. Any intentional generator
 topology change must bump generatorVersion and update the inline ASCII golden.
+Any intentional terrain topology or cost change must bump terrainGeneratorVersion
+and update the inline cornrow 10x10 terrain golden in src/generate/terrain.test.ts.
 
 ## Commands
 
