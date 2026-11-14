@@ -1,5 +1,7 @@
-import type { GenerationResult, WallMazeGenerator, WallMazeOptions } from '../generate/contract.js';
-import type { SolverId, WallMaze } from '../model/wall-maze.js';
+import type { GenerationResult, EnvironmentOptions } from '../generate/contract.js';
+import type { SolverId } from '../model/wall-maze.js';
+import type { Environment } from '../model/environment.js';
+import { mergeEnvironmentOptions } from './merge-environment-options.js';
 import { selectViewModel } from '../render/select-view-model.js';
 import type { MazeViewModel } from '../render/view-model.js';
 import { cancelledResult, type SolveResult, type SolverDescriptor, type TraceEvent } from '../search/contract.js';
@@ -8,7 +10,7 @@ import { advanceAccumulator } from './accumulator.js';
 import type { FrameHandle, FrameScheduler } from './frame-scheduler.js';
 import { finishPlayback, pausePlayback, resumePlayback, type PlaybackState } from './playback-state.js';
 
-export type MazeGeneration = GenerationResult<WallMaze, WallMazeOptions>;
+export type MazeGeneration = GenerationResult<Environment, EnvironmentOptions>;
 export type ControllerEvent =
   | { readonly type: 'generated'; readonly generation: MazeGeneration }
   | { readonly type: 'solve-started'; readonly solverId: SolverId; readonly solverLabel: string }
@@ -17,11 +19,11 @@ export type ControllerEvent =
   | { readonly type: 'state-change'; readonly playback: PlaybackState };
 export type ControllerListener = (event: ControllerEvent) => void;
 export interface ControllerOptions {
-  readonly generator: WallMazeGenerator;
+  readonly generator: (options: EnvironmentOptions) => MazeGeneration;
   readonly solvers: readonly SolverDescriptor[];
   readonly scheduler: FrameScheduler;
   readonly onRender: (viewModel: MazeViewModel) => void;
-  readonly initialOptions: WallMazeOptions;
+  readonly initialOptions: EnvironmentOptions;
 }
 export interface ControllerSnapshot {
   readonly generation: MazeGeneration;
@@ -36,7 +38,7 @@ export interface ControllerSnapshot {
  * solve/step/runToEnd throw RangeError if no registered solver is available when starting.
  */
 export interface CornrowController {
-  generate(options?: Partial<WallMazeOptions>): void;
+  generate(options?: Partial<EnvironmentOptions>): void;
   /** @throws RangeError for an unknown/missing solver, before changing playback. */
   solve(solverId?: SolverId): void;
   pause(): void;
@@ -156,7 +158,7 @@ export function createController({ generator, solvers, scheduler, onRender, init
       const wasActive = active();
       abandon();
       if (wasActive) setPlayback(finishPlayback(cancelledResult(traceState.visited.size)));
-      options = { ...options, ...nextOptions };
+      options = mergeEnvironmentOptions(options, nextOptions);
       generation = generator(options);
       traceState = initialTraceState;
       log = []; result = null; carryMs = 0;
