@@ -56,7 +56,7 @@ describe('mounted controls and lifecycle', () => {
     expect(query('canvas').getAttribute('aria-label')).toContain('10 × 10 maze, seed replay-me, Breadth-first search');
     expect(query('[aria-live]').getAttribute('aria-live')).toBe('polite');
     expect(Array.from(root.querySelectorAll('button,input,select')).map(element => element.tagName === 'BUTTON' ? element.textContent : element.closest('label')?.textContent?.split('10 ×')[0])).toEqual([
-      'Generate', 'Solve', 'Pause', 'Reset', 'Speed', 'Size', 'AlgorithmBreadth-first searchDijkstraA* (Manhattan)', 'Seed', 'Step',
+      'Generate', 'Solve', 'Pause', 'Reset', 'Speed', 'Size', 'AlgorithmBreadth-first searchDijkstraA* (Manhattan)', 'EnvironmentMazeTerrain', 'Seed', 'Step',
     ]);
     expect(Array.from(query<HTMLSelectElement>('select').options).map(option => option.value)).toEqual(['10', '20', '30', '40', '60', '80']);
     expect(button('Pause').disabled).toBe(true);
@@ -232,4 +232,36 @@ describe('mounted controls and lifecycle', () => {
     expect(globals.frameRequests).toBe(0);
     expect(host.firstElementChild?.shadowRoot?.querySelector('[aria-live]')?.textContent).toContain('Found a path');
   });
+});
+
+it('mounts terrain, switches native environments on the field seed, and balances every registration', () => {
+  const globals = instrumentGlobals();
+  const host = document.createElement('section');
+  const original = host.outerHTML;
+  const handle = mountCornrow(host, { environment: 'terrain', seed: 'terrain-seed', rows: 5, cols: 5, openness: 0.7 });
+  try {
+    const root = host.firstElementChild?.shadowRoot;
+    const select = root?.querySelectorAll('select')[2];
+    const seed = root?.querySelector<HTMLInputElement>('input[type=text]');
+    if (!select || !seed) throw new Error('Missing environment controls');
+    expect(select.closest('label')?.textContent).toBe('EnvironmentMazeTerrain');
+    expect(select.value).toBe('terrain');
+    const events: ControllerEvent[] = []; handle.on(event => events.push(event));
+    handle.solve(); globals.frame(0); globals.frame(100);
+    seed.value = 'same seed';
+    for (const kind of ['wall-maze', 'terrain', 'wall-maze'] as const) {
+      select.value = kind; select.dispatchEvent(new Event('change'));
+      expect(events.filter(event => event.type === 'generated').at(-1)?.generation)
+        .toMatchObject({ seed: 'same seed', environment: { kind, rows: 5, cols: 5 } });
+    }
+    handle.generate({ environment: 'terrain', seed: 'api' });
+    expect(events.filter(event => event.type === 'generated').at(-1)?.generation)
+      .toMatchObject({ seed: 'api', options: { openness: 0.7 }, environment: { kind: 'terrain' } });
+    handle.generate({ environment: 'wall-maze', seed: 'api-wall' });
+    expect(events.filter(event => event.type === 'generated').at(-1)?.generation)
+      .toMatchObject({ seed: 'api-wall', environment: { kind: 'wall-maze' } });
+    handle.solve();
+    handle.destroy(); globals.assertBalanced(host);
+    expect(host.outerHTML).toBe(original);
+  } finally { handle.destroy(); globals.restore(); }
 });

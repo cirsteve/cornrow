@@ -6,22 +6,22 @@ import { normaliseMountOptions } from './options';
 import type { SolverId } from '../model/wall-maze';
 
 it('describes successful, unreachable and cancelled outcomes in plain text', () => {
-  expect(describeOutcome({ kind: 'finished', outcome: 'found', pathLength: 37, pathCost: 36, exploredCount: 120 }, 'Breadth-first search'))
+  expect(describeOutcome({ kind: 'finished', outcome: 'found', pathLength: 37, pathCost: 36, exploredCount: 120 }, 'Breadth-first search', 'wall-maze'))
     .toBe('Found a path of 37 cells after exploring 120 cells with Breadth-first search');
-  expect(describeOutcome({ kind: 'finished', outcome: 'unreachable', pathLength: 0, pathCost: null, exploredCount: 24 }, 'BFS'))
+  expect(describeOutcome({ kind: 'finished', outcome: 'unreachable', pathLength: 0, pathCost: null, exploredCount: 24 }, 'BFS', 'wall-maze'))
     .toBe('Goal unreachable after exploring 24 cells');
-  expect(describeOutcome({ kind: 'finished', outcome: 'cancelled', pathLength: 0, pathCost: null, exploredCount: 12 }, 'BFS'))
+  expect(describeOutcome({ kind: 'finished', outcome: 'cancelled', pathLength: 0, pathCost: null, exploredCount: 12 }, 'BFS', 'wall-maze'))
     .toBe('Solve cancelled after exploring 12 cells');
 });
 
 it('describes idle, running and paused playback', () => {
-  expect(describeOutcome({ kind: 'idle' }, 'BFS')).toBe('Ready to solve with BFS');
-  expect(describeOutcome({ kind: 'running', solverLabel: 'A*' }, 'BFS')).toBe('Solving with A*');
-  expect(describeOutcome({ kind: 'paused', solverLabel: 'A*' }, 'BFS')).toBe('Paused with A*');
+  expect(describeOutcome({ kind: 'idle' }, 'BFS', 'wall-maze')).toBe('Ready to solve with BFS');
+  expect(describeOutcome({ kind: 'running', solverLabel: 'A*' }, 'BFS', 'wall-maze')).toBe('Solving with A*');
+  expect(describeOutcome({ kind: 'paused', solverLabel: 'A*' }, 'BFS', 'wall-maze')).toBe('Paused with A*');
 });
 
 it('normalises options purely with injected seed entropy and bounded dimensions/speed', () => {
-  expect(normaliseMountOptions({}, 'fresh')).toEqual({ mode: 'interactive', seed: 'fresh', rows: 20, cols: 20, solver: 'bfs', stepsPerSecond: 60, label: 'Cornrow maze' });
+  expect(normaliseMountOptions({}, 'fresh')).toEqual({ mode: 'interactive', environment: 'wall-maze', openness: 0.5, seed: 'fresh', rows: 20, cols: 20, solver: 'bfs', stepsPerSecond: 60, label: 'Cornrow maze' });
   expect(normaliseMountOptions({ rows: NaN, cols: Infinity, solver: 'unknown' as SolverId, stepsPerSecond: -5, seed: '' }, 'unused'))
     .toMatchObject({ rows: 5, cols: 80, solver: 'bfs', stepsPerSecond: 1, seed: '' });
   expect(normaliseMountOptions({ rows: 3, cols: 100, stepsPerSecond: NaN }, 'seed')).toMatchObject({ rows: 5, cols: 80, stepsPerSecond: 60 });
@@ -45,4 +45,9 @@ it('uses a monotonic fallback seed when crypto is unavailable', () => {
     expect(first).not.toBe(second);
     expect(first.split('-')[0]).toBe((1234).toString(36));
   } finally { vi.restoreAllMocks(); vi.unstubAllGlobals(); }
+});
+
+it('includes terrain path cost after the cell count', () => {
+  expect(describeOutcome({ kind: 'finished', outcome: 'found', pathLength: 18, pathCost: 23, exploredCount: 61 }, 'Dijkstra', 'terrain'))
+    .toBe('Found a path of 18 cells (cost 23) after exploring 61 cells with Dijkstra');
 });

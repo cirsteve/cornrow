@@ -1,6 +1,6 @@
 import { createController, type ControllerListener, type CornrowController } from '../controller/controller.js';
 import { createAnimationFrameScheduler, type FrameScheduler } from '../controller/frame-scheduler.js';
-import { recursiveBacktracker } from '../generate/recursive-backtracker.js';
+import { generateEnvironment } from '../generate/environment.js';
 import type { SolverId } from '../model/wall-maze.js';
 import { createCanvasSurface } from '../render/canvas-surface.js';
 import { drawMaze } from '../render/draw-maze.js';
@@ -86,7 +86,7 @@ export function mountCornrow(element: HTMLElement, initialOptions: MountOptions 
     const { rows, cols } = snapshot.generation.environment;
     const label = solverLabel();
     canvas.setAttribute('aria-label', `${options.label}: ${rows} × ${cols} maze, seed ${snapshot.generation.seed}, ${label}`);
-    const text = describeOutcome(snapshot.playback, label);
+    const text = describeOutcome(snapshot.playback, label, snapshot.generation.environment.kind);
     if (status && status.textContent !== text) status.textContent = text;
     controls?.update(snapshot.playback, reduced);
     if (surface === null) fallback.update(snapshot, label);
@@ -110,8 +110,8 @@ export function mountCornrow(element: HTMLElement, initialOptions: MountOptions 
   }
   resize();
   controller = createController({
-    generator: recursiveBacktracker, solvers: solverRegistry, scheduler, onRender: paint,
-    initialOptions: { seed: options.seed, rows: options.rows, cols: options.cols },
+    generator: generateEnvironment, solvers: solverRegistry, scheduler, onRender: paint,
+    initialOptions: { kind: options.environment, seed: options.seed, rows: options.rows, cols: options.cols, openness: options.openness },
   });
   const playback = controller;
   disposables.add(() => playback.dispose());
@@ -144,6 +144,7 @@ export function mountCornrow(element: HTMLElement, initialOptions: MountOptions 
     controls.seed.value = String(options.seed);
     controls.setSize(options.rows, options.cols);
     controls.algorithm.value = options.solver;
+    controls.environment.value = options.environment;
     controls.speed.value = String(options.stepsPerSecond);
   }
   const handle: CornrowHandle = {
@@ -153,7 +154,7 @@ export function mountCornrow(element: HTMLElement, initialOptions: MountOptions 
       loop?.restart();
       options = normaliseMountOptions({ ...options, ...next, mode: options.mode, seed: next.seed ?? randomSeed() }, options.seed);
       syncFields(); playback.setSpeed(options.stepsPerSecond);
-      playback.generate({ seed: options.seed, rows: options.rows, cols: options.cols });
+      playback.generate({ kind: options.environment, seed: options.seed, rows: options.rows, cols: options.cols, openness: options.openness });
       if (background) reconcilePlayback();
     },
     solve(id = options.solver) {
@@ -181,7 +182,7 @@ export function mountCornrow(element: HTMLElement, initialOptions: MountOptions 
   if (background) {
     loop = createBackgroundLoop({ playback, scheduler, regenerate: () => {
       options = normaliseMountOptions({ ...options, seed: randomSeed() }, options.seed);
-      playback.generate({ seed: options.seed, rows: options.rows, cols: options.cols });
+      playback.generate({ kind: options.environment, seed: options.seed, rows: options.rows, cols: options.cols, openness: options.openness });
     } });
     disposables.add(() => loop?.dispose());
     reconcilePlayback();
@@ -201,6 +202,9 @@ export function mountCornrow(element: HTMLElement, initialOptions: MountOptions 
     disposables.listen(controls.algorithm, 'change', () => {
       options = normaliseMountOptions({ ...options, solver: controls.algorithm.value as SolverId }, options.seed);
       controls.algorithm.value = options.solver; updateText();
+    });
+    disposables.listen(controls.environment, 'change', () => {
+      handle.generate({ environment: controls.environment.value as 'wall-maze' | 'terrain', seed: controls.seed.value });
     });
     disposables.listen(controls.size, 'change', () => {
       if (controls.size.value === '') return;
