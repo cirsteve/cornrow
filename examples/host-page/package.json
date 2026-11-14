@@ -3,6 +3,6 @@
   "private": true,
   "type": "module",
   "dependencies": {
-    "@cirsteve/cornrow": "file:./cirsteve-cornrow-0.1.0.tgz"
+    "@cirsteve/cornrow": "file:./cirsteve-cornrow-0.2.0.tgz"
   }
 }

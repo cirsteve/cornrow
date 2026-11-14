@@ -64,7 +64,7 @@
       seed: 'cornrow', rows: 10, cols: 10, label: 'Waiting-room puzzle',
     });
     const background = mountCornrow(document.querySelector('#landscape'), {
-      mode: 'background', seed: 'field-notes', rows: 10, cols: 10,
+      mode: 'background', environment: 'terrain', seed: 'field-notes', rows: 10, cols: 10,
     });
     window.addEventListener('pagehide', event => {
       if (event.persisted) return;
