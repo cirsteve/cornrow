@@ -1,7 +1,8 @@
 import { terrainPips } from '../render/draw-maze.js';
+import { palette } from '../render/palette.js';
 
-/** Colours are supplied by the caller; this factory owns no browser registrations. */
-export function createTerrainLegend(document: Document, bands: readonly [string, string, string, string]): HTMLElement {
+/** Uses the terrain palette by default and owns no browser registrations. */
+export function createTerrainLegend(document: Document, bands: readonly [string, string, string, string] = palette.terrain): HTMLElement {
   const legend = document.createElement('div');
   legend.className = 'terrain-legend';
   legend.setAttribute('role', 'group');
@@ -17,7 +18,8 @@ export function createTerrainLegend(document: Document, bands: readonly [string,
       pip.style.width = `${radius * 200}%`; pip.style.height = `${radius * 200}%`;
       swatch.append(pip);
     }
-    item.append(swatch, document.createTextNode(`Cost ${2 ** band}`));
+    if (band > 0) item.append(document.createTextNode(' / '));
+    item.append(swatch, document.createTextNode(`${band === 0 ? 'Cost ' : ''}${2 ** band}`));
     legend.append(item);
   }
   return legend;

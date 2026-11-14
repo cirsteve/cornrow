@@ -12,6 +12,7 @@ import { createControls } from './controls.js';
 import { Disposables } from './disposables.js';
 import { createFallbackSummary } from './fallback-summary.js';
 import { trackHostSignals } from './host-signals.js';
+import { createTerrainLegend } from './legend.js';
 import { normaliseMountOptions, type MountOptions } from './options.js';
 import { randomSeed } from './random-seed.js';
 import { trackReducedMotion } from './reduced-motion.js';
@@ -41,11 +42,13 @@ export function mountCornrow(element: HTMLElement, initialOptions: MountOptions 
   const style = document.createElement('style'); style.textContent = mountStyles;
   const canvas = document.createElement('canvas'); canvas.setAttribute('role', 'img');
   const controls = background ? null : createControls(document, options);
+  const legend = background ? null : createTerrainLegend(document);
+  if (legend) legend.hidden = options.environment !== 'terrain';
   const status = background ? null : document.createElement('p');
   if (status) { status.className = 'status'; status.setAttribute('aria-live', 'polite'); }
   const fallback = createFallbackSummary(document);
   shadow.append(style, canvas, fallback.element);
-  if (controls && status) shadow.append(controls.form, status);
+  if (controls && legend && status) shadow.append(controls.form, legend, status);
   element.append(wrapper);
   disposables.add(() => wrapper.remove());
 
@@ -83,6 +86,7 @@ export function mountCornrow(element: HTMLElement, initialOptions: MountOptions 
   function updateText(): void {
     if (controller === null) return;
     const snapshot = controller.getSnapshot();
+    if (legend) legend.hidden = snapshot.generation.environment.kind !== 'terrain';
     const { rows, cols } = snapshot.generation.environment;
     const label = solverLabel();
     canvas.setAttribute('aria-label', `${options.label}: ${rows} × ${cols} maze, seed ${snapshot.generation.seed}, ${label}`);

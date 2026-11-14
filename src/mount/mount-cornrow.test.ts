@@ -4,13 +4,14 @@ import { mountCornrow } from './mount-cornrow';
 import { instrumentGlobals } from './test-support/instrument-globals';
 import { createTerrainLegend } from './legend.js';
 import { terrainPips } from '../render/draw-maze.js';
+import { palette } from '../render/palette.js';
 
 it('builds a noninteractive cost legend with the canvas pip geometry and caller-supplied swatches', () => {
   // Structural test data, not a proposed terrain palette.
   const bands = ['#ffffff', '#eeeeee', '#dddddd', '#cccccc'] as const;
   const legend = createTerrainLegend(document, bands);
   expect(legend.getAttribute('aria-label')).toBe('Terrain costs');
-  expect(legend.textContent).toBe('Cost 1Cost 2Cost 4Cost 8');
+  expect(legend.textContent).toBe('Cost 1 / 2 / 4 / 8');
   expect(legend.querySelectorAll('button,input,select,[tabindex]')).toHaveLength(0);
   for (const band of [0, 1, 2, 3] as const) {
     const swatch = legend.querySelectorAll<HTMLElement>('.terrain-swatch')[band];
@@ -87,6 +88,7 @@ describe('mounted controls and lifecycle', () => {
     expect(button('Pause').disabled).toBe(true);
     expect(button('Step').hidden).toBe(true);
     expect(root.querySelector('style')?.textContent).toContain('flex-wrap: wrap');
+    expect(query<HTMLElement>('.terrain-legend').hidden).toBe(true);
   });
 
   it('exercises all playback controls and releases active rAF and subscriptions on destroy', () => {
@@ -268,7 +270,16 @@ it('mounts terrain, switches native environments on the field seed, and balances
     const root = host.firstElementChild?.shadowRoot;
     const select = root?.querySelectorAll('select')[2];
     const seed = root?.querySelector<HTMLInputElement>('input[type=text]');
-    if (!select || !seed) throw new Error('Missing environment controls');
+    const legend = root?.querySelector<HTMLElement>('.terrain-legend');
+    if (!select || !seed || !legend) throw new Error('Missing environment controls or legend');
+    expect(legend.hidden).toBe(false);
+    expect(legend.textContent).toBe('Cost 1 / 2 / 4 / 8');
+    expect(legend.previousElementSibling?.tagName).toBe('FORM');
+    for (const [band, swatch] of Array.from(legend.querySelectorAll<HTMLElement>('.terrain-swatch')).entries()) {
+      const expected = document.createElement('span'); expected.style.backgroundColor = palette.terrain[band] ?? '';
+      expect(swatch.style.backgroundColor).toBe(expected.style.backgroundColor);
+      expect(swatch.children).toHaveLength(band);
+    }
     expect(select.closest('label')?.textContent).toBe('EnvironmentMazeTerrain');
     expect(select.value).toBe('terrain');
     const events: ControllerEvent[] = []; handle.on(event => events.push(event));
@@ -276,13 +287,16 @@ it('mounts terrain, switches native environments on the field seed, and balances
     seed.value = 'same seed';
     for (const kind of ['wall-maze', 'terrain', 'wall-maze'] as const) {
       select.value = kind; select.dispatchEvent(new Event('change'));
+      expect(legend.hidden).toBe(kind !== 'terrain');
       expect(events.filter(event => event.type === 'generated').at(-1)?.generation)
         .toMatchObject({ seed: 'same seed', environment: { kind, rows: 5, cols: 5 } });
     }
     handle.generate({ environment: 'terrain', seed: 'api' });
+    expect(legend.hidden).toBe(false);
     expect(events.filter(event => event.type === 'generated').at(-1)?.generation)
       .toMatchObject({ seed: 'api', options: { openness: 0.7 }, environment: { kind: 'terrain' } });
     handle.generate({ environment: 'wall-maze', seed: 'api-wall' });
+    expect(legend.hidden).toBe(true);
     expect(events.filter(event => event.type === 'generated').at(-1)?.generation)
       .toMatchObject({ seed: 'api-wall', environment: { kind: 'wall-maze' } });
     handle.solve();
