@@ -1,3 +1,4 @@
+import { pathCost } from '../model/environment.js';
 import { openNeighbours, toNodeId } from '../model/wall-maze.js';
 import type { Solver } from './contract.js';
 import { reconstructPath } from './path-validity.js';
@@ -20,7 +21,7 @@ export const bfs: Solver = function* (maze, endpoints) {
     if (current === endpoints.goal) {
       const path = reconstructPath(maze, parents, endpoints);
       yield { type: 'path', path };
-      return { outcome: 'found', path, exploredCount, space: 'discrete-graph' };
+      return { outcome: 'found', path, exploredCount, cost: pathCost(maze, path), space: 'discrete-graph' };
     }
     for (const next of openNeighbours(maze, current)) {
       if (discovered[next] === 1) continue;
@@ -30,5 +31,5 @@ export const bfs: Solver = function* (maze, endpoints) {
       yield { type: 'frontier-add', node: next };
     }
   }
-  return { outcome: 'unreachable', path: [], exploredCount, space: 'discrete-graph' };
+  return { outcome: 'unreachable', path: [], exploredCount, cost: null, space: 'discrete-graph' };
 };

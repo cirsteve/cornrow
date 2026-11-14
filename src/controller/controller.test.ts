@@ -94,7 +94,7 @@ describe('controller playback', () => {
   it('enforces the 500 step per-frame cap with an injected long-running solver', () => {
     const solver: Solver = function* (maze) {
       for (let i = 0; i < 1200; i += 1) yield { type: 'visit', node: maze.start };
-      return { outcome: 'unreachable', path: [], exploredCount: 1, space: 'discrete-graph' };
+      return { outcome: 'unreachable', path: [], exploredCount: 1, cost: null, space: 'discrete-graph' };
     };
     const { controller, scheduler, onRender } = setup(solver);
     controller.setSpeed(10000); controller.solve(); scheduler.frame(0);
@@ -123,7 +123,7 @@ describe('controller playback', () => {
     const staleFrame = [...scheduler.callbacks.values()][0];
     controller.generate({ seed: 'new' });
     expect(returned).toHaveBeenCalledExactlyOnceWith(cancelledResult(exploredCount));
-    expect(events).toContainEqual({ type: 'state-change', playback: { kind: 'finished', outcome: 'cancelled', pathLength: 0, exploredCount } });
+    expect(events).toContainEqual({ type: 'state-change', playback: { kind: 'finished', outcome: 'cancelled', pathLength: 0, pathCost: null, exploredCount } });
     expect(injectedGenerator).toHaveBeenLastCalledWith({ ...initialOptions, seed: 'new' });
     expect(events.at(-1)?.type).toBe('generated');
     expect(controller.getSnapshot()).toMatchObject({ playback: { kind: 'idle' }, traceState: initialTraceState });
@@ -137,7 +137,7 @@ describe('controller playback', () => {
     const solver: Solver = function* (maze) {
       try { yield { type: 'visit', node: maze.start }; yield { type: 'visit', node: maze.goal }; }
       finally { returned(); }
-      return { outcome: 'unreachable', path: [], exploredCount: 2, space: 'discrete-graph' };
+      return { outcome: 'unreachable', path: [], exploredCount: 2, cost: null, space: 'discrete-graph' };
     };
     const { controller, events, scheduler, injectedGenerator } = setup(solver);
     const environment = controller.getSnapshot().generation.environment;
@@ -282,7 +282,7 @@ describe('controller playback', () => {
     const solver: Solver = function* (maze) {
       try { yield { type: 'visit', node: maze.start }; }
       finally { finalized(); }
-      return { outcome: 'found', path: [maze.start], exploredCount: 1, space: 'discrete-graph' };
+      return { outcome: 'found', path: [maze.start], exploredCount: 1, cost: 0, space: 'discrete-graph' };
     };
     const { controller, scheduler, onRender } = setup(solver);
     const listener = vi.fn();
@@ -324,4 +324,27 @@ it('creates the browser scheduler only when its factory is called', () => {
     scheduler.cancel(42);
     expect(cancel).toHaveBeenCalledExactlyOnceWith(42);
   } finally { vi.unstubAllGlobals(); }
+});
+
+import { generateEnvironment } from '../generate/environment.js';
+import { pathCost } from '../model/environment.js';
+import { solverRegistry } from '../search/registry.js';
+
+it('switches an active solve to terrain on the same seed and dimensions, then reports its path cost', () => {
+  const scheduler = new FakeScheduler();
+  const controller = createController({ generator: generateEnvironment, solvers: solverRegistry, scheduler, onRender: vi.fn(),
+    initialOptions: { ...initialOptions, kind: 'wall-maze' } });
+  const events: ControllerEvent[] = [];
+  controller.on(event => events.push(event));
+  controller.solve(); scheduler.frame(0); scheduler.frame(100);
+  expect(controller.getSnapshot().traceState.stepIndex).toBeGreaterThan(0);
+  controller.generate({ kind: 'terrain' });
+  expect(controller.getSnapshot()).toMatchObject({ traceState: initialTraceState, playback: { kind: 'idle' },
+    generation: { seed: initialOptions.seed, environment: { kind: 'terrain', rows: 5, cols: 5 } } });
+  expect(scheduler.callbacks.size).toBe(0);
+  expect(events.at(-1)?.type).toBe('generated');
+  controller.solve('dijkstra' as SolverId); controller.runToEnd();
+  const { generation, traceState, playback } = controller.getSnapshot();
+  expect(playback).toMatchObject({ kind: 'finished', outcome: 'found', pathCost: pathCost(generation.environment, traceState.path ?? []) });
+  controller.dispose();
 });

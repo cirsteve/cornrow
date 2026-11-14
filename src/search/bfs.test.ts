@@ -50,7 +50,7 @@ describe('BFS stepper', () => {
     const endpoints = { start: nodeIdOf(comparisonMaze, { row: 3, col: 2 }), goal: nodeIdOf(comparisonMaze, { row: 1, col: 0 }) };
     expect(checkPath(comparisonMaze, drain(comparisonMaze, endpoints).result.path, endpoints).ok).toBe(true);
     const single = { start: comparisonMaze.start, goal: comparisonMaze.start };
-    expect(drain(comparisonMaze, single).result).toEqual({ outcome: 'found', path: [single.start], exploredCount: 1, space: 'discrete-graph' });
+    expect(drain(comparisonMaze, single).result).toEqual({ outcome: 'found', path: [single.start], exploredCount: 1, cost: 0, space: 'discrete-graph' });
   });
 
   it('steps and replays identically while preserving the frozen environment', () => {

@@ -2,6 +2,32 @@
 import { it, expect } from 'vitest';
 import { mountCornrow } from './mount-cornrow';
 import { instrumentGlobals } from './test-support/instrument-globals';
+import { createTerrainLegend } from './legend.js';
+import { terrainPips } from '../render/draw-maze.js';
+import { palette } from '../render/palette.js';
+
+it('builds a noninteractive cost legend with the canvas pip geometry and caller-supplied swatches', () => {
+  // Structural test data, not a proposed terrain palette.
+  const bands = ['#ffffff', '#eeeeee', '#dddddd', '#cccccc'] as const;
+  const legend = createTerrainLegend(document, bands);
+  expect(legend.getAttribute('aria-label')).toBe('Terrain costs');
+  expect(legend.textContent).toBe('Cost 1 / 2 / 4 / 8');
+  expect(legend.querySelectorAll('button,input,select,[tabindex]')).toHaveLength(0);
+  for (const band of [0, 1, 2, 3] as const) {
+    const swatch = legend.querySelectorAll<HTMLElement>('.terrain-swatch')[band];
+    expect(swatch?.getAttribute('aria-hidden')).toBe('true');
+    expect(swatch?.children).toHaveLength(band);
+    const probe = document.createElement('span'); probe.style.backgroundColor = bands[band];
+    expect(swatch?.style.backgroundColor).toBe(probe.style.backgroundColor);
+    terrainPips(band).forEach(({ center, radius }, index) => {
+      const pip = swatch?.children[index] as HTMLElement | undefined;
+      expect(pip?.style.left).toBe(`${(center.x - radius) * 100}%`);
+      expect(pip?.style.top).toBe(`${(center.y - radius) * 100}%`);
+      expect(pip?.style.width).toBe(`${radius * 200}%`);
+      expect(pip?.style.height).toBe(`${radius * 200}%`);
+    });
+  }
+});
 
 it('mounts an isolated wrapper and destroys it idempotently without changing its host', () => {
   const globals = instrumentGlobals();
@@ -56,12 +82,13 @@ describe('mounted controls and lifecycle', () => {
     expect(query('canvas').getAttribute('aria-label')).toContain('10 × 10 maze, seed replay-me, Breadth-first search');
     expect(query('[aria-live]').getAttribute('aria-live')).toBe('polite');
     expect(Array.from(root.querySelectorAll('button,input,select')).map(element => element.tagName === 'BUTTON' ? element.textContent : element.closest('label')?.textContent?.split('10 ×')[0])).toEqual([
-      'Generate', 'Solve', 'Pause', 'Reset', 'Speed', 'Size', 'AlgorithmBreadth-first searchA* (Manhattan)', 'Seed', 'Step',
+      'Generate', 'Solve', 'Pause', 'Reset', 'Speed', 'Size', 'AlgorithmBreadth-first searchDijkstraA* (Manhattan)', 'EnvironmentMazeTerrain', 'Seed', 'Step',
     ]);
     expect(Array.from(query<HTMLSelectElement>('select').options).map(option => option.value)).toEqual(['10', '20', '30', '40', '60', '80']);
     expect(button('Pause').disabled).toBe(true);
     expect(button('Step').hidden).toBe(true);
     expect(root.querySelector('style')?.textContent).toContain('flex-wrap: wrap');
+    expect(query<HTMLElement>('.terrain-legend').hidden).toBe(true);
   });
 
   it('exercises all playback controls and releases active rAF and subscriptions on destroy', () => {
@@ -232,4 +259,48 @@ describe('mounted controls and lifecycle', () => {
     expect(globals.frameRequests).toBe(0);
     expect(host.firstElementChild?.shadowRoot?.querySelector('[aria-live]')?.textContent).toContain('Found a path');
   });
+});
+
+it('mounts terrain, switches native environments on the field seed, and balances every registration', () => {
+  const globals = instrumentGlobals();
+  const host = document.createElement('section');
+  const original = host.outerHTML;
+  const handle = mountCornrow(host, { environment: 'terrain', seed: 'terrain-seed', rows: 5, cols: 5, openness: 0.7 });
+  try {
+    const root = host.firstElementChild?.shadowRoot;
+    const select = root?.querySelectorAll('select')[2];
+    const seed = root?.querySelector<HTMLInputElement>('input[type=text]');
+    const legend = root?.querySelector<HTMLElement>('.terrain-legend');
+    if (!select || !seed || !legend) throw new Error('Missing environment controls or legend');
+    expect(legend.hidden).toBe(false);
+    expect(legend.textContent).toBe('Cost 1 / 2 / 4 / 8');
+    expect(legend.previousElementSibling?.tagName).toBe('FORM');
+    for (const [band, swatch] of Array.from(legend.querySelectorAll<HTMLElement>('.terrain-swatch')).entries()) {
+      const expected = document.createElement('span'); expected.style.backgroundColor = palette.terrain[band] ?? '';
+      expect(swatch.style.backgroundColor).toBe(expected.style.backgroundColor);
+      expect(swatch.children).toHaveLength(band);
+    }
+    expect(select.closest('label')?.textContent).toBe('EnvironmentMazeTerrain');
+    expect(select.value).toBe('terrain');
+    const events: ControllerEvent[] = []; handle.on(event => events.push(event));
+    handle.solve(); globals.frame(0); globals.frame(100);
+    seed.value = 'same seed';
+    for (const kind of ['wall-maze', 'terrain', 'wall-maze'] as const) {
+      select.value = kind; select.dispatchEvent(new Event('change'));
+      expect(legend.hidden).toBe(kind !== 'terrain');
+      expect(events.filter(event => event.type === 'generated').at(-1)?.generation)
+        .toMatchObject({ seed: 'same seed', environment: { kind, rows: 5, cols: 5 } });
+    }
+    handle.generate({ environment: 'terrain', seed: 'api' });
+    expect(legend.hidden).toBe(false);
+    expect(events.filter(event => event.type === 'generated').at(-1)?.generation)
+      .toMatchObject({ seed: 'api', options: { openness: 0.7 }, environment: { kind: 'terrain' } });
+    handle.generate({ environment: 'wall-maze', seed: 'api-wall' });
+    expect(legend.hidden).toBe(true);
+    expect(events.filter(event => event.type === 'generated').at(-1)?.generation)
+      .toMatchObject({ seed: 'api-wall', environment: { kind: 'wall-maze' } });
+    handle.solve();
+    handle.destroy(); globals.assertBalanced(host);
+    expect(host.outerHTML).toBe(original);
+  } finally { handle.destroy(); globals.restore(); }
 });

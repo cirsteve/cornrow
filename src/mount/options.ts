@@ -2,6 +2,8 @@ import { clampGridSize, type SolverId } from '../model/wall-maze.js';
 import { getSolver } from '../search/registry.js';
 
 export interface MountOptions {
+  readonly environment?: 'wall-maze' | 'terrain';
+  readonly openness?: number;
   readonly mode?: 'interactive' | 'background';
   readonly seed?: string | number;
   readonly rows?: number;
@@ -11,6 +13,8 @@ export interface MountOptions {
   readonly label?: string;
 }
 export interface NormalisedMountOptions {
+  readonly environment: 'wall-maze' | 'terrain';
+  readonly openness: number;
   readonly mode: 'interactive' | 'background';
   readonly seed: string;
   readonly rows: number;
@@ -28,6 +32,8 @@ export function normaliseMountOptions(options: MountOptions, freshSeed: string |
   const speed = options.stepsPerSecond ?? defaultSpeed;
   return {
     mode,
+    environment: options.environment === 'terrain' ? 'terrain' : 'wall-maze',
+    openness: Number.isFinite(options.openness ?? 0.5) ? Math.min(1, Math.max(0, options.openness ?? 0.5)) : 0.5,
     // Native text fields must replay the same seed type used for the first maze.
     seed: String(options.seed ?? freshSeed),
     rows: clampGridSize(options.rows ?? 20), cols: clampGridSize(options.cols ?? 20),

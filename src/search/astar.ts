@@ -1,3 +1,4 @@
+import { pathCost, stepCost } from '../model/environment.js';
 import { cellOf, openNeighbours, toNodeId, type NodeId } from '../model/wall-maze.js';
 import type { Solver } from './contract.js';
 import { MinHeap } from './min-heap.js';
@@ -41,10 +42,10 @@ export const astar: Solver = function* (maze, endpoints) {
     if (current.node === endpoints.goal) {
       const path = reconstructPath(maze, parents, endpoints);
       yield { type: 'path', path };
-      return { outcome: 'found', path, exploredCount, space: 'discrete-graph' };
+      return { outcome: 'found', path, exploredCount, cost: pathCost(maze, path), space: 'discrete-graph' };
     }
     for (const next of openNeighbours(maze, current.node)) {
-      const distance = current.distance + 1;
+      const distance = current.distance + stepCost(maze, next);
       if (expanded[next] === 1 || distance >= (distances[next] ?? Infinity)) continue;
       distances[next] = distance;
       parents[next] = current.node;
@@ -52,5 +53,5 @@ export const astar: Solver = function* (maze, endpoints) {
       yield { type: 'frontier-add', node: next };
     }
   }
-  return { outcome: 'unreachable', path: [], exploredCount, space: 'discrete-graph' };
+  return { outcome: 'unreachable', path: [], exploredCount, cost: null, space: 'discrete-graph' };
 };

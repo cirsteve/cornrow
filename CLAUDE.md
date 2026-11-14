@@ -11,7 +11,7 @@ do not apply to this repository.
   explaining the invariant.
 - Use discriminated unions for variants, branded domain ids, and the local
   `Result<T, E>` at IO and validation boundaries. Errors carry an operation and detail.
-  Renderer/playback programmer-error guards have the documented exception below.
+  Model and renderer/playback programmer-error guards have the documented exceptions below.
 - Write pure named transforms with co-located unit tests and descriptive names.
 - Named exports only in source modules (Vite's configuration requires a default).
 - No runtime dependencies. Generator code must never use `Math.random`.
@@ -38,6 +38,8 @@ Mazes and their passage arrays are frozen at construction.
 
 The documented sample is seed `cornrow` at 10x10. Any intentional generator
 topology change must bump generatorVersion and update the inline ASCII golden.
+Any intentional terrain topology or cost change must bump terrainGeneratorVersion
+and update the inline cornrow 10x10 terrain golden in src/generate/terrain.test.ts.
 
 ## Commands
 
@@ -76,6 +78,11 @@ exception to the Result convention, preserving the specified renderer/playback
 contracts without adding an error branch to each valid frame. The later mount
 layer should validate user input with `Result` before calling these APIs; expected
 solve outcomes (found, unreachable, cancelled) remain discriminated values.
+
+The model's `stepCost` also throws `RangeError` when a terrain node has no entry in
+the cost array. Constructed terrain has one cost per valid node, so callers must
+pass a valid node id. This programmer-error guard preserves the numeric return
+contract; terrain construction and validation still report invalid costs with `Result`.
 
 ## Mount layer
 

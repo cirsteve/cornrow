@@ -9,5 +9,5 @@ export function resumePlayback(state: PlaybackState): PlaybackState {
   return state.kind === 'paused' ? { ...state, kind: 'running' } : state;
 }
 export function finishPlayback(result: SolveResult): PlaybackState {
-  return { kind: 'finished', outcome: result.outcome, pathLength: result.path.length, exploredCount: result.exploredCount };
+  return { kind: 'finished', outcome: result.outcome, pathLength: result.path.length, pathCost: result.cost, exploredCount: result.exploredCount };
 }

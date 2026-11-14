@@ -1,4 +1,5 @@
-import type { NodeId, SolverId, WallMaze } from '../model/wall-maze.js';
+import type { Environment } from '../model/environment.js';
+import type { NodeId, SolverId } from '../model/wall-maze.js';
 
 export interface Endpoints {
   readonly start: NodeId;
@@ -14,10 +15,11 @@ export interface SolveResult {
   readonly outcome: 'found' | 'unreachable' | 'cancelled';
   readonly path: readonly NodeId[];
   readonly exploredCount: number;
+  readonly cost: number | null;
   readonly space: 'discrete-graph';
 }
 
-export type Solver = (environment: Readonly<WallMaze>, endpoints: Endpoints) => Generator<TraceEvent, SolveResult>;
+export type Solver = (environment: Readonly<Environment>, endpoints: Endpoints) => Generator<TraceEvent, SolveResult>;
 
 export interface SolverDescriptor {
   readonly id: SolverId;
@@ -27,5 +29,5 @@ export interface SolverDescriptor {
 
 /** Cancellation belongs to the consumer, which can pass this to iterator.return(). */
 export function cancelledResult(exploredCount: number): SolveResult {
-  return { outcome: 'cancelled', path: [], exploredCount, space: 'discrete-graph' };
+  return { outcome: 'cancelled', path: [], exploredCount, cost: null, space: 'discrete-graph' };
 }

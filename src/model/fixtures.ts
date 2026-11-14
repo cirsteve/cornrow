@@ -1,3 +1,4 @@
+import { buildTerrainMaze } from './terrain-maze.js';
 import { buildWallMaze, type PassagePair, type WallMaze } from './wall-maze.js';
 
 function fixture(passages: readonly PassagePair[]): WallMaze {
@@ -27,3 +28,11 @@ for (let row = 0; row < 5; row += 1) {
   }
 }
 export const comparisonMaze = fixture(comparisonPassages);
+
+const ridgeBuilt = buildTerrainMaze({
+  rows: 5, cols: 5, passages: comparisonPassages,
+  start: { row: 2, col: 0 }, goal: { row: 2, col: 4 },
+  costs: Array.from({ length: 25 }, (_, node) => node < 20 && node % 5 === 2 ? 8 : 1),
+});
+if (!ridgeBuilt.ok) throw new Error(`Invalid ridge fixture: ${ridgeBuilt.error.detail}`);
+export const ridgeTerrain = ridgeBuilt.value;
