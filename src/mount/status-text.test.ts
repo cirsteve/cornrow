@@ -6,11 +6,11 @@ import { normaliseMountOptions } from './options';
 import type { SolverId } from '../model/wall-maze';
 
 it('describes successful, unreachable and cancelled outcomes in plain text', () => {
-  expect(describeOutcome({ kind: 'finished', outcome: 'found', pathLength: 37, exploredCount: 120 }, 'Breadth-first search'))
+  expect(describeOutcome({ kind: 'finished', outcome: 'found', pathLength: 37, pathCost: 36, exploredCount: 120 }, 'Breadth-first search'))
     .toBe('Found a path of 37 cells after exploring 120 cells with Breadth-first search');
-  expect(describeOutcome({ kind: 'finished', outcome: 'unreachable', pathLength: 0, exploredCount: 24 }, 'BFS'))
+  expect(describeOutcome({ kind: 'finished', outcome: 'unreachable', pathLength: 0, pathCost: null, exploredCount: 24 }, 'BFS'))
     .toBe('Goal unreachable after exploring 24 cells');
-  expect(describeOutcome({ kind: 'finished', outcome: 'cancelled', pathLength: 0, exploredCount: 12 }, 'BFS'))
+  expect(describeOutcome({ kind: 'finished', outcome: 'cancelled', pathLength: 0, pathCost: null, exploredCount: 12 }, 'BFS'))
     .toBe('Solve cancelled after exploring 12 cells');
 });
 

@@ -123,7 +123,7 @@ describe('controller playback', () => {
     const staleFrame = [...scheduler.callbacks.values()][0];
     controller.generate({ seed: 'new' });
     expect(returned).toHaveBeenCalledExactlyOnceWith(cancelledResult(exploredCount));
-    expect(events).toContainEqual({ type: 'state-change', playback: { kind: 'finished', outcome: 'cancelled', pathLength: 0, exploredCount } });
+    expect(events).toContainEqual({ type: 'state-change', playback: { kind: 'finished', outcome: 'cancelled', pathLength: 0, pathCost: null, exploredCount } });
     expect(injectedGenerator).toHaveBeenLastCalledWith({ ...initialOptions, seed: 'new' });
     expect(events.at(-1)?.type).toBe('generated');
     expect(controller.getSnapshot()).toMatchObject({ playback: { kind: 'idle' }, traceState: initialTraceState });
