@@ -137,7 +137,12 @@ for (const name of ['bfs', 'dijkstra', 'astar'] as const) {
 ```
 
 In an interactive embed choose **Terrain** beside Algorithm, then run each solver.
-Terrain status and the Canvas fallback include path cost. Wall mazes retain their existing appearance and status text.
+Four green bands run from light (cost 1) to dark (cost 8). At cell sizes of at
+least 14 CSS pixels, 0–3 corner pips also identify the cost band; the legend below
+the controls shows the same colours and pips. Explored cells keep their bands
+visible under translucent overlays. Terrain uses darker markers for contrast.
+Terrain status and the Canvas fallback include path cost. Wall mazes retain
+their existing appearance and status text.
 Background mounts also accept `environment: 'terrain'` and `openness`.
 
 ### Breaking changes in 0.2.0
