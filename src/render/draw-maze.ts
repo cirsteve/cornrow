@@ -84,7 +84,8 @@ export function drawMaze(surface: DrawingSurface, view: MazeViewModel): void {
     ], markers.error, size * 0.1);
   }
   if (view.current !== null) {
-    const { x, y, width, height } = rect(view.current, size * 0.12);
+    // Terrain pips occupy the outer corners; keep the outline's stroke inside them.
+    const { x, y, width, height } = rect(view.current, size * (terrain ? 0.2 : 0.12));
     surface.polyline([{ x, y }, { x: x + width, y }, { x: x + width, y: y + height },
       { x, y: y + height }, { x, y }], markers.current, size * 0.07);
   }

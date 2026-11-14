@@ -82,6 +82,33 @@ it.each([13, 14, 28])('draws exactly the band number of corner pips only at >=14
   expect(counts).toEqual(view.cells.map(cell => cell.costBand));
 });
 
+it.each([14, 28, 80].flatMap(size => ([1, 2, 3] as const).map(band => ({ size, band }))))(
+  'keeps the current outline clear of all $band cost pips at $size px', ({ size, band }) => {
+    const original = terrainView();
+    const current = toNodeId(ridgeTerrain, 12);
+    const view: MazeViewModel = {
+      ...original, current,
+      cells: original.cells.map((cell, node) => ({ ...cell, costBand: node === current ? band : 0 })),
+    };
+    const surface = new RecordingSurface({ width: size * 5, height: size * 5 });
+    drawMaze(surface, view);
+    const pips = surface.calls.filter(call => call.method === 'fillCircle').filter(call => call.color === palette.walls);
+    const outline = surface.calls.at(-1);
+    if (outline?.method !== 'polyline') throw new Error('Missing current outline');
+    expect(outline.color).toBe(palette.terrainMarkers.current);
+    expect(pips).toHaveLength(band);
+    for (const pip of pips) for (const [index, end] of outline.points.slice(1).entries()) {
+      const start = outline.points[index];
+      if (!start) throw new Error('Missing outline segment start');
+      // Distance to the nearest point of each stroked segment, including its caps.
+      const dx = end.x - start.x; const dy = end.y - start.y;
+      const t = Math.max(0, Math.min(1, ((pip.center.x - start.x) * dx + (pip.center.y - start.y) * dy) / (dx * dx + dy * dy)));
+      const distance = Math.hypot(pip.center.x - start.x - t * dx, pip.center.y - start.y - t * dy);
+      expect(distance).toBeGreaterThan(pip.radius + outline.width / 2);
+    }
+  },
+);
+
 it.each<{ playback: PlaybackStatus; overlay: string }>([
   { playback: { kind: 'idle' }, overlay: palette.visitedOverlay },
   { playback: { kind: 'running', solverLabel: 'Test' }, overlay: palette.visitedOverlay },
