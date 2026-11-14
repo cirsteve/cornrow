@@ -59,3 +59,16 @@ function assertTerrainContrast(colors: TerrainContrastPalette): void {
     if (previous) expect(luminance(rgb(previous))).toBeGreaterThan(luminance(rgb(band)));
   });
 }
+
+it('keeps the approved terrain-only markers at 3:1 on every explored band', () => {
+  assertTerrainContrast({ ...palette, ...palette.terrainMarkers });
+});
+
+it('also keeps terrain markers legible on raw, failed and cancelled bands', () => {
+  for (const overlay of ['rgba(0, 0, 0, 0)', palette.failureVisitedOverlay, palette.cancelledOverlay]) {
+    assertTerrainContrast({ ...palette, ...palette.terrainMarkers, visitedOverlay: overlay });
+  }
+  for (const band of palette.terrain) {
+    expect(contrast(rgb(palette.terrainMarkers.error), composite(band, palette.failureVisitedOverlay))).toBeGreaterThanOrEqual(3);
+  }
+});
