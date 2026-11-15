@@ -35,7 +35,7 @@ Coordinates are (row, col) from the top-left; node id = row * cols + col.
 The 4-neighbour grid uses passage bits N=1, E=2, S=4, W=8: absent passages are
 walls. Neighbours are ordered N, E, S, W. Passages are symmetric. Start defaults
 to (0,0); goal defaults to (rows-1, cols-1). Every constructor rounds and clamps
-each side to 5-80 cells. Non-finite sizes normalize to 5 (positive infinity to 80).
+each side to 5-200 cells. Non-finite sizes normalize to 5 (positive infinity to 200).
 Mazes and their passage arrays are frozen at construction.
 
 The documented sample is seed `cornrow` at 10x10. Any intentional generator

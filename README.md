@@ -129,7 +129,7 @@ state without knowing which solver produced it.
 Coordinates are **(row, col)** from the top-left. Node id is `row * cols + col`.
 The four-neighbour grid orders neighbours north, east, south, west; walls are
 absent passages, and passage bits are N=1, E=2, S=4, W=8. Default start is (0,0)
-and default goal is (rows−1, cols−1). Each size is rounded and clamped to 5–80
+and default goal is (rows−1, cols−1). Each size is rounded and clamped to 5–200
 cells per side. The renderer's wall masks describe walls present, the inverse
 of model passage bits.
 
