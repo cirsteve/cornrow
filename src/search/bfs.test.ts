@@ -130,3 +130,166 @@ describe('public DOM-free core', () => {
     });
   });
 });
+
+// Shared continuation invariants apply to every frontier implementation.
+import { bfsResumable } from './bfs';
+import { dijkstra, dijkstraResumable } from './dijkstra';
+import { astar, astarResumable } from './astar';
+import type { ResumableSearch, ResumableSolver, ResumableStep, Solver } from './contract';
+import type { Environment } from '../model/environment';
+import { pathCost } from '../model/environment';
+import { ridgeTerrain } from '../model/fixtures';
+import { toNodeId } from '../model/wall-maze';
+import { addObstacles, removeObstacles } from '../edit/edit-environment';
+import { applyTraceEvent, initialTraceState } from '../trace/trace-state';
+
+function drainSession(session: Pick<ResumableSearch, 'next'>) {
+  const events: TraceEvent[] = [];
+  for (let count = 0; count < 10000; count++) {
+    const step = session.next();
+    if (step.done) return { events, result: step.value };
+    events.push(step.value);
+  }
+  throw new Error('Session did not finish');
+}
+
+function cut(environment: Environment, from: number, to: number): Environment {
+  const passages = [...environment.passages];
+  const forward = to === from + 1 ? 2 : 4;
+  const backward = forward === 2 ? 8 : 1;
+  passages[from] = (passages[from] ?? 0) & ~forward;
+  passages[to] = (passages[to] ?? 0) & ~backward;
+  return Object.freeze({ ...environment, passages: Object.freeze(passages) });
+}
+
+it('exposes the resumable contract types', () => {
+  expectTypeOf(bfsResumable).toEqualTypeOf<ResumableSolver>();
+  expectTypeOf<ReturnType<ResumableSearch['next']>>().toEqualTypeOf<ResumableStep>();
+});
+
+const sessions: readonly [string, ResumableSolver, Solver][] = [
+  ['bfs', bfsResumable, bfs], ['dijkstra', dijkstraResumable, dijkstra], ['astar', astarResumable, astar],
+];
+describe.each(sessions)('%s resumable', (_name, factory, solver) => {
+  it.each([openCorridorMaze, isolatedGoalMaze, comparisonMaze, ridgeTerrain,
+    recursiveBacktracker({ seed: 'cornrow', rows: 10, cols: 10 }).environment])('matches one-shot traces on $id', environment => {
+    expect(drainSession(factory(environment, environment))).toEqual(drainSession(solver(environment, environment)));
+  });
+
+  it('moves to an expanded goal immediately and preserves cumulative visits', () => {
+    const session = factory(comparisonMaze, comparisonMaze);
+    for (let i = 0; i < 4; i++) session.next();
+    const edited = { ...comparisonMaze, goal: comparisonMaze.start };
+    expect(session.applyEdit(edited)).toEqual({ events: [{ type: 'edit', environment: edited }, { type: 'path', path: [edited.start] }], hasMoreToSearch: false });
+    const step = session.next();
+    expect(step).toMatchObject({ done: true, value: { outcome: 'found', path: [edited.start], exploredCount: 1 } });
+    expect(session.next()).toEqual(step);
+  });
+
+  it('moves to an unexplored goal while keeping the live frontier', () => {
+    const session = factory(comparisonMaze, comparisonMaze);
+    for (let i = 0; i < 4; i++) session.next();
+    const edited = { ...comparisonMaze, goal: toNodeId(comparisonMaze, 20) };
+    expect(session.applyEdit(edited).hasMoreToSearch).toBe(true);
+    const { result } = drainSession(session);
+    expect(result.outcome).toBe('found');
+    expect(checkPath(edited, result.path, edited).ok).toBe(true);
+  });
+
+  it('invalidates an entire cut tree, replays it, and resumes after reopening', () => {
+    const environment = openCorridorMaze;
+    const session = factory(environment, environment);
+    const first = drainSession(session);
+    const edited = cut(environment, 1, 2);
+    const change = session.applyEdit(edited);
+    expect(change.events.map(event => event.type)).toEqual(['edit', 'invalidate']);
+    expect(change.events[1]).toEqual({ type: 'invalidate', nodes: [2, 3, 4, 9, 14, 19, 24] });
+    expect(change.hasMoreToSearch).toBe(false);
+    const second = drainSession(session);
+    expect(second.result.outcome).toBe('unreachable');
+    const state = [...first.events, ...change.events, ...second.events].reduce(applyTraceEvent, initialTraceState);
+    expect(state.environment).toBe(edited);
+    for (const node of [2, 3, 4, 9, 14, 19, 24]) {
+      expect(state.visited.has(toNodeId(edited, node))).toBe(false);
+      expect(state.frontier.has(toNodeId(edited, node))).toBe(false);
+    }
+    const reopen = session.applyEdit(environment);
+    expect(reopen.events).toEqual([{ type: 'edit', environment }, { type: 'frontier-add', node: 2 }]);
+    expect(reopen.hasMoreToSearch).toBe(true);
+    const resumed = drainSession(session);
+    expect(resumed.result.outcome).toBe('found');
+    expect(checkPath(environment, resumed.result.path, environment).ok).toBe(true);
+    const replay = [...reopen.events, ...resumed.events].reduce(applyTraceEvent, state);
+    expect(replay.path).toEqual(resumed.result.path);
+    expect(resumed.result.exploredCount).toBe([...first.events, ...second.events, ...resumed.events].filter(event => event.type === 'visit').length);
+  });
+
+  it('cuts and reseeds a frontier without visiting stale entries', () => {
+    const session = factory(comparisonMaze, comparisonMaze);
+    for (let i = 0; i < 6; i++) session.next();
+    const edited = cut(comparisonMaze, 0, 1);
+    const change = session.applyEdit(edited);
+    expect(change.events[0]).toEqual({ type: 'edit', environment: edited });
+    expect(change.events.some(event => event.type === 'invalidate')).toBe(true);
+    const { result, events } = drainSession(session);
+    expect(result.outcome).toBe('found');
+    expect(checkPath(edited, result.path, edited).ok).toBe(true);
+    const visits = events.filter(event => event.type === 'visit').map(event => event.node);
+    expect(new Set(visits).size).toBe(visits.length);
+  });
+
+  it('keeps a completed path across unrelated cuts', () => {
+    const session = factory(openCorridorMaze, openCorridorMaze);
+    const first = drainSession(session);
+    const edited = cut(openCorridorMaze, 5, 6);
+    expect(session.applyEdit(edited)).toEqual({ events: [{ type: 'edit', environment: edited }, { type: 'path', path: first.result.path }], hasMoreToSearch: false });
+    expect(drainSession(session).result.path).toEqual(first.result.path);
+  });
+
+  it('rejects invalid edits before mutation', () => {
+    const session = factory(comparisonMaze, comparisonMaze);
+    const control = factory(comparisonMaze, comparisonMaze);
+    session.next(); control.next();
+    expect(() => session.applyEdit({ ...comparisonMaze, cols: 6 })).toThrow(RangeError);
+    expect(() => session.applyEdit({ ...comparisonMaze, goal: -1 as typeof comparisonMaze.goal })).toThrow(RangeError);
+    expect(drainSession(session)).toEqual(drainSession(control));
+  });
+
+  it('supports real obstacle cuts and reopenings', () => {
+    const session = factory(comparisonMaze, comparisonMaze);
+    for (let i = 0; i < 10; i++) session.next();
+    const blocked = addObstacles(comparisonMaze, { row: 0, col: 1 }, 0);
+    if (!blocked.ok) throw new Error(blocked.error.detail);
+    session.applyEdit(blocked.value);
+    const reopened = removeObstacles(blocked.value, { row: 0, col: 1 }, 0);
+    if (!reopened.ok) throw new Error(reopened.error.detail);
+    session.applyEdit(reopened.value);
+    const { result } = drainSession(session);
+    expect(checkPath(reopened.value, result.path, reopened.value).ok).toBe(true);
+  });
+});
+
+it.each([dijkstraResumable, astarResumable])('rekeys terrain frontier costs without invalidation', factory => {
+  const session = factory(ridgeTerrain, ridgeTerrain);
+  for (let i = 0; i < 6; i++) session.next();
+  const edited = addObstacles(ridgeTerrain, { row: 2, col: 1 }, 1);
+  if (!edited.ok) throw new Error(edited.error.detail);
+  const change = session.applyEdit(edited.value);
+  expect(change.events[0]).toEqual({ type: 'edit', environment: edited.value });
+  expect(change.events.slice(1).every(event => event.type === 'frontier-add')).toBe(true);
+  const { result } = drainSession(session);
+  expect(result.outcome).toBe('found');
+  expect(result.cost).toBe(pathCost(edited.value, result.path));
+  expect(checkPath(edited.value, result.path, edited.value).ok).toBe(true);
+});
+
+it('A* rekeys the existing frontier against the moved goal', () => {
+  const session = astarResumable(comparisonMaze, comparisonMaze);
+  // Frontier is east=1 (sequence 1), south=5 (sequence 2), both g=1.
+  for (let i = 0; i < 4; i++) session.next();
+  const edited = { ...comparisonMaze, goal: toNodeId(comparisonMaze, 20) };
+  expect(session.applyEdit(edited).events).toEqual([{ type: 'edit', environment: edited }]);
+  // South has h=3, f=4; east has h=5, f=6.
+  expect(session.next()).toEqual({ done: false, value: { type: 'visit', node: 5 } });
+  expect(checkPath(edited, drainSession(session).result.path, edited).ok).toBe(true);
+});

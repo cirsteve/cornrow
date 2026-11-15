@@ -18,9 +18,15 @@ it('imports the public entry and generates and solves without a DOM', () => {
   expect(typeof document).toBe('undefined');
   expect(typeof window).toBe('undefined');
   const { environment } = generate({ seed: 'cornrow', rows: 10, cols: 10 });
-  for (const id of ['bfs', 'astar']) {
+  for (const id of ['bfs', 'dijkstra', 'astar']) {
     const descriptor = getSolver(id);
     if (!descriptor.ok) throw new Error(descriptor.error.detail);
+    expect(typeof descriptor.value.resumable).toBe('function');
+    const session = descriptor.value.resumable(environment, environment);
+    let step = session.next();
+    while (!step.done) step = session.next();
+    expect(step.value.outcome).toBe('found');
+    expect(checkPath(environment, step.value.path, environment).ok).toBe(true);
     const { result } = solve(environment, descriptor.value.id);
     expect(result.outcome).toBe('found');
     if (result.outcome !== 'found') throw new Error('Expected a solved maze');
