@@ -47,7 +47,7 @@ export interface MazeBuildError {
 
 export function clampGridSize(size: number): number {
   if (Number.isNaN(size)) return 5;
-  return Math.max(5, Math.min(80, Math.round(size)));
+  return Math.max(5, Math.min(200, Math.round(size)));
 }
 
 function isInGrid(grid: GridSize, cell: CellCoord): boolean {

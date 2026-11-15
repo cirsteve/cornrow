@@ -86,7 +86,7 @@ describe('mounted controls and lifecycle', () => {
     expect(Array.from(root.querySelectorAll('button,input,select')).map(element => element.tagName === 'BUTTON' ? element.textContent : element.closest('label')?.textContent?.split('10 ×')[0])).toEqual([
       'Generate', 'Solve', 'Pause', 'Reset', 'Speed', 'Size', 'AlgorithmBreadth-first searchDijkstraA* (Manhattan)', 'EnvironmentMazeTerrain', 'Seed', 'ClickNoneAdd wallsRemove wallsMove goal', 'Area', 'Step',
     ]);
-    expect(Array.from(query<HTMLSelectElement>('select').options).map(option => option.value)).toEqual(['10', '20', '30', '40', '60', '80']);
+    expect(Array.from(query<HTMLSelectElement>('select').options).map(option => option.value)).toEqual(['10', '20', '30', '40', '60', '80', '100', '150', '200']);
     expect(button('Pause').disabled).toBe(true);
     expect(button('Step').hidden).toBe(true);
     expect(root.querySelector('style')?.textContent).toContain('flex-wrap: wrap');
@@ -191,16 +191,16 @@ describe('mounted controls and lifecycle', () => {
     expect(size.selectedOptions[0]?.textContent).toBe(`${rows} × ${cols} (current)`);
     expect(size.selectedOptions[0]?.disabled).toBe(true);
     expect(Array.from(size.options).filter(option => !option.disabled).map(option => option.value))
-      .toEqual(['10', '20', '30', '40', '60', '80']);
+      .toEqual(['10', '20', '30', '40', '60', '80', '100', '150', '200']);
     handle.generate({ rows: 17, cols: 23, seed: 'custom-size' });
     expect(size.selectedOptions[0]?.textContent).toBe('17 × 23 (current)');
-    expect(size.options).toHaveLength(7);
+    expect(size.options).toHaveLength(10);
     query('form').dispatchEvent(new Event('submit', { cancelable: true }));
     expect(size.selectedOptions[0]?.textContent).toBe('17 × 23 (current)');
     const events: ControllerEvent[] = []; handle.on(event => events.push(event));
     size.value = '20'; size.dispatchEvent(new Event('change'));
     expect(size.selectedOptions[0]?.textContent).toBe('20 × 20');
-    expect(size.options).toHaveLength(6);
+    expect(size.options).toHaveLength(9);
     expect(events.filter(event => event.type === 'generated').at(-1)?.generation)
       .toMatchObject({ seed: 'custom-size', environment: { rows: 20, cols: 20 } });
   });
@@ -219,7 +219,7 @@ describe('mounted controls and lifecycle', () => {
     expect(events.find(event => event.type === 'solve-started')).toMatchObject({ solverId: 'astar', solverLabel: 'A* (Manhattan)' });
     expect(query('canvas').getAttribute('aria-label')).toContain('A* (Manhattan)');
     handle.generate({ rows: -100, cols: Infinity, solver: 'missing' as SolverId, label: 'Guest maze' });
-    expect(query('canvas').getAttribute('aria-label')).toContain('Guest maze: 5 × 80');
+    expect(query('canvas').getAttribute('aria-label')).toContain('Guest maze: 5 × 200');
     handle.solve('missing' as SolverId);
     expect(events.filter(event => event.type === 'solve-started').at(-1)?.solverId).toBe('bfs');
   });

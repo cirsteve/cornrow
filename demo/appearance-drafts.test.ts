@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { defaultAppearance, mergeAppearance } from '../src/index';
 import { appearanceFields, pageDefaults } from './appearance-fields';
-import { parseHexDraft, parsePercent, formatAlpha, colorPatch, alphaPatch, saturationPatch, shapePatch, baseFrontier } from './appearance-drafts';
+import { parseHexDraft, parsePercent, formatAlpha, colorPatch, alphaPatch, saturationPatch, shapePatch, baseFrontier, frontierBasePath } from './appearance-drafts';
 
 describe('appearance drafts and descriptor coverage', () => {
   it('covers every published leaf exactly once', () => {
@@ -40,4 +40,11 @@ describe('appearance drafts and descriptor coverage', () => {
     expect(baseFrontier(defaultAppearance, 'terrain')).toBe('#684500');
     expect(baseFrontier(defaultAppearance, 'wall-maze')).toBe('#E69F00');
   });
+});
+
+it('maps active environments to frontier token patches', () => {
+  expect(frontierBasePath('terrain')).toEqual({ kind: 'marker', key: 'frontier' });
+  expect(frontierBasePath('wall-maze')).toEqual({ kind: 'palette', key: 'frontier' });
+  expect(colorPatch(defaultAppearance, frontierBasePath('terrain'), '#123456')).toEqual({ render: { palette: { terrainMarkers: { frontier: '#123456' } } } });
+  expect(colorPatch(defaultAppearance, frontierBasePath('wall-maze'), '#123456')).toEqual({ render: { palette: { frontier: '#123456' } } });
 });
