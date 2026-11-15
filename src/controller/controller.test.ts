@@ -9,6 +9,10 @@ import { cancelledResult, type Solver } from '../search/contract';
 import { initialTraceState } from '../trace/trace-state';
 import { createController, type ControllerEvent } from './controller';
 import { createAnimationFrameScheduler, type FrameHandle, type FrameScheduler } from './frame-scheduler';
+import { generateEnvironment } from '../generate/environment.js';
+import { pathCost } from '../model/environment.js';
+import { solverRegistry } from '../search/registry.js';
+import { addObstacles, setGoal } from '../edit/edit-environment.js';
 
 class FakeScheduler implements FrameScheduler {
   private nextHandle = 0;
@@ -326,9 +330,6 @@ it('creates the browser scheduler only when its factory is called', () => {
   } finally { vi.unstubAllGlobals(); }
 });
 
-import { generateEnvironment } from '../generate/environment.js';
-import { pathCost } from '../model/environment.js';
-import { solverRegistry } from '../search/registry.js';
 
 it('switches an active solve to terrain on the same seed and dimensions, then reports its path cost', () => {
   const scheduler = new FakeScheduler();
@@ -349,7 +350,6 @@ it('switches an active solve to terrain on the same seed and dimensions, then re
   controller.dispose();
 });
 
-import { setGoal } from '../edit/edit-environment.js';
 it('cancels active playback on edit, preserves provenance and solves the new goal', () => {
   const { controller, events, onRender, scheduler } = setup();
   expect(controller.getSnapshot().edited).toBe(false);
@@ -378,4 +378,23 @@ it('cancels active playback on edit, preserves provenance and solves the new goa
   controller.edit(changed.value);
   expect(events).toEqual([]);
   expect(onRender).toHaveBeenCalledTimes(disposedRenders);
+});
+
+it('reports unreachable after an edit walls off the goal', () => {
+  const { controller, events, scheduler } = setup();
+  const environment = controller.getSnapshot().generation.environment;
+  const changed = addObstacles(environment, { row: environment.rows - 1, col: environment.cols - 1 }, 0);
+  if (!changed.ok) throw new Error(changed.error.detail);
+  expect(changed.value.passages[changed.value.goal]).toBe(0);
+  controller.edit(changed.value);
+  controller.solve();
+  controller.runToEnd();
+  expect(controller.getSnapshot()).toMatchObject({
+    edited: true,
+    generation: { environment: changed.value },
+    playback: { kind: 'finished', outcome: 'unreachable' },
+  });
+  expect(events.at(-1)).toMatchObject({ type: 'solved', result: { outcome: 'unreachable', path: [] } });
+  expect(scheduler.callbacks.size).toBe(0);
+  controller.dispose();
 });

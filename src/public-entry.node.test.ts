@@ -10,6 +10,10 @@ import type {
   TerrainOptions, TerrainGenerator, EnvironmentOptions, TerrainValidationError, WallMaze,
 } from './index.js';
 
+import { defaultAppearance, mergeAppearance, normaliseHex, frontierColor, formatOverlay } from './index.js';
+import type { RenderAppearance, RenderPalette, FrontierAppearance, AppearanceError, AppearancePatch, CornrowAppearance, MountedUiTokens } from './index.js';
+import { cellsInArea, addObstacles, removeObstacles, setGoal, cellAtPoint } from './index.js';
+
 it('imports the public entry and generates and solves without a DOM', () => {
   expect(typeof document).toBe('undefined');
   expect(typeof window).toBe('undefined');
@@ -57,8 +61,6 @@ it('exports the terrain core and preserves precise generation types without a DO
   expect(run.result.cost).toBe(pathCost(terrain.environment, run.result.path));
 });
 
-import { defaultAppearance, mergeAppearance, normaliseHex, frontierColor, formatOverlay } from './index.js';
-import type { RenderAppearance, RenderPalette, FrontierAppearance, AppearanceError, AppearancePatch, CornrowAppearance, MountedUiTokens } from './index.js';
 it('exports appearance values and precise types without a DOM', () => {
   expect(typeof document).toBe('undefined');
   expect(Object.isFrozen(defaultAppearance.render.palette)).toBe(true);
@@ -76,7 +78,6 @@ it('exports appearance values and precise types without a DOM', () => {
   expectTypeOf<AppearanceError['kind']>().toEqualTypeOf<'invalid-patch' | 'destroyed'>();
 });
 
-import { cellsInArea, addObstacles, removeObstacles, setGoal, cellAtPoint } from './index.js';
 it('edits through the public entry without a DOM', () => {
   expect(typeof document).toBe('undefined');
   expect(typeof window).toBe('undefined');

@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { computeLayout } from './layout';
+import { cellAtPoint, computeLayout } from './layout.js';
 
 it.each([
   [5, 10, 500, 400, 50, 0, 75],
@@ -15,7 +15,6 @@ it('rejects invalid grid and surface dimensions', () => {
   expect(() => computeLayout(5, 5, { width: NaN, height: 100 })).toThrow(RangeError);
 });
 
-import { cellAtPoint } from './layout.js';
 it.each([[10, 20], [20, 10]])('inverts layout for %s by %s including letterboxes and resize', (rows, cols) => {
   const grid = { rows, cols };
   for (const size of [{ width: 400, height: 400 }, { width: 800, height: 300 }]) {
