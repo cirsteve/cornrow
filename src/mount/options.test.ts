@@ -12,3 +12,10 @@ it.each([[1.5, 1], [-0.2, 0], [NaN, 0.5], [Infinity, 0.5], [undefined, 0.5]])('n
   expect(normaliseMountOptions(options, 'seed').openness).toBe(expected);
   expect(options).toEqual(before);
 });
+
+ it.each([[undefined, 1], [2.4, 2], [2.6, 3], [-1, 0], [9, 5], [NaN, 1], [Infinity, 1], [-Infinity, 1]])('normalises edit radius %s to %s', (editRadius, expected) => {
+  const options = editRadius === undefined ? {} : { editRadius };
+  const before = { ...options };
+  expect(normaliseMountOptions(options, 'seed').editRadius).toBe(expected);
+  expect(options).toEqual(before);
+});

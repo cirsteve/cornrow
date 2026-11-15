@@ -40,7 +40,7 @@ alone. Destroy removes the wrapper and releases listeners, observers,
 subscriptions and animation frames; calling it again is safe.
 
 Options are `mode`, `seed` (string or number), `rows`, `cols`, `solver` (a branded
-id obtained from `getSolver`), `stepsPerSecond`, `environment`, `openness`, and the accessible `label`.
+id obtained from `getSolver`), `stepsPerSecond`, `environment`, `openness`, `editRadius`, and the accessible `label`.
 `environment` defaults to `'wall-maze'`; choose `'terrain'` for weighted cells.
 `openness` defaults to 0.5 and is clamped to 0–1 (non-finite values use 0.5).
 It controls how many extra passages terrain opens and is retained when switching
@@ -51,6 +51,22 @@ has `generate(options?)`, `solve(solverId?)`, `pause()`, `resume()`, `reset()`,
 `on(listener)` (returns an unsubscribe function), and `destroy()`. `generate()`
 uses a fresh seed unless one is supplied. Mode is chosen at mount time; destroy
 and mount again to change it.
+
+`editRadius` is an integer area radius in cells, rounded and clamped to 0–5,
+with default 1; non-finite values use 1. It persists across regeneration.
+The native **Click** select offers None (default), Add obstacles / Remove obstacles
+(shown as Add walls / Remove walls in a maze or Raise cost / Lower cost in terrain),
+and Move goal. The **Area** number input sets the radius for adding or removing
+obstacles. Each edit is announced in the status line, and edited environments
+are labelled as edited from their seed.
+
+The handle also provides `addObstacles(cell)`, `removeObstacles(cell)` and
+`setGoal(cell)`, using zero-based `{ row, col }` coordinates. They return a `Result`
+whose error is an `EditError`, or `MountEditUnavailable` with kind `'destroyed'`
+or `'background-mode'`. `setEditRadius(radius)` normalises the radius and updates
+Area. Background mode and the Canvas-unavailable fallback accept no clicks;
+the fallback still supports handle edits. Regenerating through Generate, Size,
+Environment or Seed discards edits and a moved goal.
 
 For a decorative background, mount into a positioned host behind your content:
 
@@ -116,6 +132,22 @@ absent passages, and passage bits are N=1, E=2, S=4, W=8. Default start is (0,0)
 and default goal is (rows−1, cols−1). Each size is rounded and clamped to 5–80
 cells per side. The renderer's wall masks describe walls present, the inverse
 of model passage bits.
+
+### Editing environments
+
+```ts
+import { addObstacles, setGoal } from '@cirsteve/cornrow';
+
+let editedEnvironment = environment;
+const obstacles = addObstacles(editedEnvironment, { row: 4, col: 4 }, 1);
+if (obstacles.ok) editedEnvironment = obstacles.value;
+const goal = setGoal(editedEnvironment, { row: 3, col: 7 });
+if (goal.ok) editedEnvironment = goal.value;
+```
+
+Edits may create loops, disconnect cells or make the goal unreachable; solvers
+report unreachable. They may change terrain costs or move the goal. Any
+regeneration discards edits, and edited environments are not reproducible from the seed.
 
 ## Terrain
 

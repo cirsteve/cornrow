@@ -1,7 +1,7 @@
 import { expect, it, vi } from 'vitest';
 import { mountCornrow } from '../index';
 import { randomSeed } from './random-seed';
-import { describeOutcome } from './status-text';
+import { describeOutcome, describeEdit } from './status-text';
 import { normaliseMountOptions } from './options';
 import type { SolverId } from '../model/wall-maze';
 
@@ -21,7 +21,7 @@ it('describes idle, running and paused playback', () => {
 });
 
 it('normalises options purely with injected seed entropy and bounded dimensions/speed', () => {
-  expect(normaliseMountOptions({}, 'fresh')).toEqual({ mode: 'interactive', environment: 'wall-maze', openness: 0.5, seed: 'fresh', rows: 20, cols: 20, solver: 'bfs', stepsPerSecond: 60, label: 'Cornrow maze' });
+  expect(normaliseMountOptions({}, 'fresh')).toEqual({ mode: 'interactive', environment: 'wall-maze', openness: 0.5, editRadius: 1, seed: 'fresh', rows: 20, cols: 20, solver: 'bfs', stepsPerSecond: 60, label: 'Cornrow maze' });
   expect(normaliseMountOptions({ rows: NaN, cols: Infinity, solver: 'unknown' as SolverId, stepsPerSecond: -5, seed: '' }, 'unused'))
     .toMatchObject({ rows: 5, cols: 80, solver: 'bfs', stepsPerSecond: 1, seed: '' });
   expect(normaliseMountOptions({ rows: 3, cols: 100, stepsPerSecond: NaN }, 'seed')).toMatchObject({ rows: 5, cols: 80, stepsPerSecond: 60 });
@@ -50,4 +50,15 @@ it('uses a monotonic fallback seed when crypto is unavailable', () => {
 it('includes terrain path cost after the cell count', () => {
   expect(describeOutcome({ kind: 'finished', outcome: 'found', pathLength: 18, pathCost: 23, exploredCount: 61 }, 'Dijkstra', 'terrain'))
     .toBe('Found a path of 18 cells (cost 23) after exploring 61 cells with Dijkstra');
+});
+
+it.each([
+  ['add', 'wall-maze', 'Added walls around row 3, column 7'],
+  ['remove', 'wall-maze', 'Removed walls around row 3, column 7'],
+  ['add', 'terrain', 'Raised cost around row 3, column 7'],
+  ['remove', 'terrain', 'Lowered cost around row 3, column 7'],
+  ['goal', 'wall-maze', 'Goal moved to row 3, column 7'],
+  ['goal', 'terrain', 'Goal moved to row 3, column 7'],
+] as const)('describes %s in %s', (tool, kind, expected) => {
+  expect(describeEdit({ tool, kind, cell: { row: 2, col: 6 } })).toBe(expected);
 });

@@ -85,7 +85,7 @@ export type {
   ControllerListener, MazeGeneration,
 } from './controller/controller.js';
 export { mountCornrow } from './mount/mount-cornrow.js';
-export type { CornrowHandle } from './mount/mount-cornrow.js';
+export type { CornrowHandle, MountEditUnavailable } from './mount/mount-cornrow.js';
 export type { MountOptions } from './mount/options.js';
 
 export { TERRAIN_COSTS, buildTerrainMaze } from './model/terrain-maze.js';
@@ -104,3 +104,6 @@ export { normaliseHex } from './render/merge-appearance.js';
 export { frontierColor } from './render/frontier-color.js';
 export { formatOverlay } from './render/appearance.js';
 export type { RenderAppearance, RenderPalette, FrontierAppearance, AppearanceError } from './render/appearance.js';
+
+export { cellsInArea, addObstacles, removeObstacles, setGoal, type EditError } from './edit/edit-environment.js';
+export { cellAtPoint } from './render/layout.js';
