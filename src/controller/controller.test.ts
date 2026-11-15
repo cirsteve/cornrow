@@ -1,3 +1,4 @@
+import { openNeighbours } from '../model/wall-maze.js';
 import { describe, expect, it, vi } from 'vitest';
 import { recursiveBacktracker } from '../generate/recursive-backtracker';
 import type { WallMazeGenerator } from '../generate/contract';
@@ -12,7 +13,7 @@ import { createAnimationFrameScheduler, type FrameHandle, type FrameScheduler } 
 import { generateEnvironment } from '../generate/environment.js';
 import { pathCost } from '../model/environment.js';
 import { solverRegistry } from '../search/registry.js';
-import { addObstacles, setGoal } from '../edit/edit-environment.js';
+import { addObstacles, removeObstacles, setGoal } from '../edit/edit-environment.js';
 
 class FakeScheduler implements FrameScheduler {
   private nextHandle = 0;
@@ -353,34 +354,112 @@ it('switches an active solve to terrain on the same seed and dimensions, then re
   controller.dispose();
 });
 
-it('cancels active playback on edit, preserves provenance and solves the new goal', () => {
-  const { controller, events, onRender, scheduler } = setup();
-  expect(controller.getSnapshot().edited).toBe(false);
-  const before = controller.getSnapshot().generation;
-  const changed = setGoal(before.environment, { row: 3, col: 2 });
+it.each(['idle', 'running', 'paused'] as const)('preserves %s intent and provenance on edit', kind => {
+  const { controller, events, scheduler, onRender } = setup();
+  if (kind !== 'idle') { controller.solve(); scheduler.frame(0); scheduler.frame(100); }
+  if (kind === 'paused') controller.pause();
+  const before = controller.getSnapshot();
+  const changed = setGoal(before.generation.environment, { row: 3, col: 2 });
   if (!changed.ok) throw new Error(changed.error.detail);
-  controller.solve();
   events.length = 0;
   const renders = onRender.mock.calls.length;
   controller.edit(changed.value);
-  expect(events).toMatchObject([
-    { type: 'state-change', playback: { kind: 'finished', outcome: 'cancelled' } },
-    { type: 'state-change', playback: { kind: 'idle' } },
-    { type: 'edited', environment: changed.value },
-  ]);
+  expect(controller.getSnapshot()).toMatchObject({ edited: true, playback: { kind }, generation: { environment: changed.value } });
   expect(onRender).toHaveBeenCalledTimes(renders + 1);
-  expect(scheduler.callbacks.size).toBe(0);
-  expect(controller.getSnapshot()).toMatchObject({ edited: true, generation: { ...before, environment: changed.value }, traceState: initialTraceState, playback: { kind: 'idle' } });
-  controller.solve(); controller.runToEnd();
-  expect(controller.getSnapshot().traceState.path?.at(-1)).toBe(changed.value.goal);
-  controller.generate();
-  expect(controller.getSnapshot().edited).toBe(false);
+  expect(scheduler.callbacks.size).toBe(kind === 'running' ? 1 : 0);
+  if (kind === 'idle') {
+    expect(controller.getSnapshot().traceState).toBe(initialTraceState);
+    expect(events).toEqual([{ type: 'edited', environment: changed.value }]);
+  } else {
+    expect(controller.getSnapshot().traceState.visited).toEqual(before.traceState.visited);
+    expect(events[0]).toMatchObject({ type: 'step', event: { type: 'edit' } });
+  }
   controller.dispose();
+});
+
+it('updates a finished path immediately for a visited goal and resumes for an unexplored goal', () => {
+  const { controller, scheduler, events } = setup(bfs, options => ({ ...recursiveBacktracker(options), environment: comparisonMaze }));
+  const near = setGoal(comparisonMaze, { row: 0, col: 1 });
+  if (!near.ok) throw new Error('goal');
+  controller.edit(near.value); controller.runToEnd();
+  const visitedGoal = setGoal(near.value, { row: 0, col: 1 });
+  if (!visitedGoal.ok) throw new Error('goal');
   events.length = 0;
-  const disposedRenders = onRender.mock.calls.length;
-  controller.edit(changed.value);
-  expect(events).toEqual([]);
-  expect(onRender).toHaveBeenCalledTimes(disposedRenders);
+  controller.edit(visitedGoal.value);
+  expect(controller.getSnapshot().playback).toMatchObject({ kind: 'finished', outcome: 'found', pathLength: 2 });
+  expect(events.some(event => event.type === 'solved')).toBe(true);
+  controller.edit(comparisonMaze);
+  expect(controller.getSnapshot().playback).toMatchObject({ kind: 'running', solverLabel: 'Injected solver' });
+  expect(scheduler.callbacks.size).toBe(1);
+  controller.runToEnd();
+  expect(controller.getSnapshot().traceState.path?.at(-1)).toBe(comparisonMaze.goal);
+});
+
+it.each(['reset', 'generate'] as const)('discards the session on %s so later edits stay idle', method => {
+  const { controller } = setup();
+  controller.runToEnd(); controller[method]();
+  controller.edit(controller.getSnapshot().generation.environment);
+  expect(controller.getSnapshot().playback.kind).toBe('idle');
+  expect(controller.getSnapshot().traceState).toBe(initialTraceState);
+});
+
+it('folds paused invalidation immediately and replays edits from the solve environment', () => {
+  const { controller, scheduler, events, onRender } = setup(bfs, options => ({ ...recursiveBacktracker(options), environment: comparisonMaze }));
+  controller.solve(); scheduler.frame(0); scheduler.frame(200); controller.pause();
+  const wall = addObstacles(comparisonMaze, { row: 0, col: 1 }, 0);
+  if (!wall.ok) throw new Error('wall');
+  events.length = 0;
+  controller.edit(wall.value);
+  const invalid = events.find(event => event.type === 'step' && event.event.type === 'invalidate');
+  expect(invalid).toBeDefined();
+  if (invalid?.type === 'step' && invalid.event.type === 'invalidate') {
+    for (const node of invalid.event.nodes) expect(controller.getSnapshot().traceState.visited.has(node)).toBe(false);
+  }
+  expect(scheduler.callbacks.size).toBe(0);
+  const goal = setGoal(wall.value, { row: 4, col: 3 });
+  if (!goal.ok) throw new Error('goal');
+  controller.edit(goal.value); controller.runToEnd();
+  const live = controller.getSnapshot().traceState;
+  const view = onRender.mock.calls.at(-1)?.[0];
+  controller.replay();
+  expect(onRender.mock.calls.at(-1)?.[0]).not.toEqual(view);
+  controller.runToEnd();
+  expect(controller.getSnapshot().traceState).toEqual(live);
+  expect(onRender.mock.calls.at(-1)?.[0]).toEqual(view);
+  controller.replay(); scheduler.frame(0); scheduler.frame(100);
+  let restored = false;
+  const stop = controller.on(event => { if (event.type === 'step' && event.event.type === 'edit') {
+    expect(event.traceState.visited).toEqual(live.visited); restored = true;
+  } });
+  controller.edit(goal.value);
+  stop();
+  expect(restored).toBe(true);
+  expect(controller.getSnapshot().playback.kind).toBe('finished');
+  const after = controller.getSnapshot().traceState;
+  controller.replay(); controller.runToEnd();
+  expect(controller.getSnapshot().traceState).toEqual(after);
+});
+
+it.each(solverRegistry)('resumes valid paths with $id after wall, goal and cost edits', descriptor => {
+  for (const kind of ['wall', 'wall-cut', 'goal', 'cost'] as const) {
+    const controller = createController({ generator: options => {
+      const generated = generateEnvironment(options);
+      return kind === 'wall-cut' ? { ...generated, environment: comparisonMaze } : generated;
+    }, solvers: [descriptor], scheduler: new FakeScheduler(), onRender: vi.fn(),
+      initialOptions: { ...initialOptions, kind: kind === 'cost' ? 'terrain' : 'wall-maze' } });
+    for (let i = 0; i < 8; i++) controller.step();
+    const env = controller.getSnapshot().generation.environment;
+    const changed = kind === 'goal' ? setGoal(env, { row: 3, col: 2 }) : kind === 'wall'
+      ? removeObstacles(env, { row: 2, col: 2 }, 1) : addObstacles(env, { row: 2, col: 2 }, kind === 'wall-cut' ? 0 : 1);
+    if (!changed.ok) throw new Error('edit');
+    controller.edit(changed.value); controller.runToEnd();
+    const { playback, traceState } = controller.getSnapshot();
+    expect(playback).toMatchObject({ kind: 'finished', outcome: 'found', pathCost: pathCost(changed.value, traceState.path ?? []) });
+    expect(traceState.path?.at(-1)).toBe(changed.value.goal);
+    for (let i = 1; i < (traceState.path?.length ?? 0); i++) {
+      expect(openNeighbours(changed.value, traceState.path![i - 1]!)).toContain(traceState.path![i]);
+    }
+  }
 });
 
 it('reports unreachable after an edit walls off the goal', () => {
@@ -407,9 +486,10 @@ it('does not announce an edit or generation that a state-change listener replace
   const original = controller.getSnapshot().generation.environment;
   const changed = setGoal(original, { row: 3, col: 2 });
   if (!changed.ok) throw new Error(changed.error.detail);
+  controller.step();
   let replace = true;
   controller.on(event => {
-    if (replace && event.type === 'state-change' && event.playback.kind === 'idle') { replace = false; controller.generate({ seed: 'replacement' }); }
+    if (replace && (event.type === 'step' || (event.type === 'state-change' && event.playback.kind === 'idle'))) { replace = false; controller.generate({ seed: 'replacement' }); }
   });
   events.length = 0;
   controller.edit(changed.value);
@@ -423,4 +503,16 @@ it('does not announce an edit or generation that a state-change listener replace
   expect(generated).toEqual([{ type: 'generated', generation: controller.getSnapshot().generation }]);
   expect(controller.getSnapshot().generation.seed).toBe('replacement');
   controller.dispose();
+});
+
+it('keeps a cancelled playback when a listener edits after abandonment', () => {
+  const { controller } = setup();
+  const changed = setGoal(controller.getSnapshot().generation.environment, { row: 3, col: 2 });
+  if (!changed.ok) throw new Error('goal');
+  controller.solve();
+  controller.on(event => {
+    if (event.type === 'state-change' && event.playback.kind === 'finished' && event.playback.outcome === 'cancelled') controller.edit(changed.value);
+  });
+  controller.generate();
+  expect(controller.getSnapshot()).toMatchObject({ edited: true, playback: { kind: 'finished', outcome: 'cancelled' }, generation: { environment: changed.value } });
 });

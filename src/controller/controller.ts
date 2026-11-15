@@ -180,19 +180,46 @@ export function createController({ generator, solvers, scheduler, onRender, init
     edit(environment) {
       if (disposed) return;
       const current = ++operation;
-      const wasActive = active();
-      abandon();
-      if (wasActive) setPlayback(finishPlayback(cancelledResult(traceState.visited.size)));
-      if (operation !== current) return;
+      const wasReplay = replayIndex !== null;
+      if (wasReplay) {
+        cancelFrame();
+        replayIndex = null;
+        traceState = log.reduce(applyTraceEvent, initialTraceState);
+      }
       generation = { ...generation, environment };
-      traceState = initialTraceState;
-      log = []; result = null; carryMs = 0;
       edited = true;
-      setPlayback({ kind: 'idle' });
-      // A state-change listener may have replaced this edit; announcing it now would contradict the snapshot.
-      if (operation !== current) return;
+      if (session !== null) {
+        const applied = session.applyEdit(environment);
+        for (const yielded of applied.events) {
+          const event = yielded.type === 'path' ? { ...yielded, path: [...yielded.path] } : { ...yielded };
+          log.push(event);
+          traceState = applyTraceEvent(traceState, event);
+          emit({ type: 'step', event, traceState });
+          if (operation !== current) return;
+        }
+        if (wasReplay || playback.kind === 'finished') {
+          carryMs = 0;
+          previousMs = null;
+          if (applied.hasMoreToSearch) {
+            result = null;
+            setPlayback({ kind: 'running', solverLabel: selected!.label });
+            if (operation !== current) return;
+          } else {
+            const completed = session.next();
+            if (!completed.done) throw new Error('Completed edit must re-emit its result');
+            result = completed.value;
+            cancelFrame();
+            setPlayback(finishPlayback(completed.value));
+            if (operation !== current) return;
+            emit({ type: 'solved', result: completed.value });
+            if (operation !== current) return;
+          }
+        }
+      }
       emit({ type: 'edited', environment });
+      if (operation !== current) return;
       render();
+      requestFrame();
     },
     solve(solverId) {
       if (disposed) return;
