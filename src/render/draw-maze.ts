@@ -50,11 +50,11 @@ export function drawMaze(surface: DrawingSurface, view: MazeViewModel, appearanc
     if (cell.layer === 'visited' || cell.layer === 'path') surface.fillRect(rect(node), visitedColor);
   });
   // Inset frontier squares differ from the full visited fills even without colour.
+  const frontierFill = frontierColor(markers.frontier, appearance.frontier.saturationScale);
   view.cells.forEach((cell, node) => {
     if (cell.layer === 'frontier') {
-      const color = frontierColor(markers.frontier, appearance.frontier.saturationScale);
-      if (appearance.frontier.shape === 'circle') surface.fillCircle(center(node), size * 0.3, color);
-      else surface.fillRect(rect(node, size * 0.2), color);
+      if (appearance.frontier.shape === 'circle') surface.fillCircle(center(node), size * 0.3, frontierFill);
+      else surface.fillRect(rect(node, size * 0.2), frontierFill);
     }
   });
   const wallWidth = Math.min(2, size * 0.06);
