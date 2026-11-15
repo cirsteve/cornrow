@@ -122,10 +122,11 @@ of model passage bits.
 ```ts
 import { addObstacles, setGoal } from '@cirsteve/cornrow';
 
-const obstacles = addObstacles(environment, { row: 4, col: 4 }, 1);
-if (obstacles.ok) environment = obstacles.value;
-const goal = setGoal(environment, { row: 3, col: 7 });
-if (goal.ok) environment = goal.value;
+let editedEnvironment = environment;
+const obstacles = addObstacles(editedEnvironment, { row: 4, col: 4 }, 1);
+if (obstacles.ok) editedEnvironment = obstacles.value;
+const goal = setGoal(editedEnvironment, { row: 3, col: 7 });
+if (goal.ok) editedEnvironment = goal.value;
 ```
 
 Edits may create loops, disconnect cells or make the goal unreachable; solvers
