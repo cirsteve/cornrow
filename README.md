@@ -57,8 +57,11 @@ with default 1; non-finite values use 1. It persists across regeneration.
 The native **Click** select offers None (default), Add obstacles / Remove obstacles
 (shown as Add walls / Remove walls in a maze or Raise cost / Lower cost in terrain),
 and Move goal. The **Area** number input sets the radius for adding or removing
-obstacles. Each edit is announced in the status line, and edited environments
-are labelled as edited from their seed.
+obstacles. Each edit is announced in the status line, which says when the search
+is continuing, and edited environments are labelled as edited from their seed.
+Edits keep the maze and explored search state: running keeps running, paused
+stays paused, finished resumes if there is more to search, and idle stays idle.
+Replay reproduces edits.
 
 The handle also provides `addObstacles(cell)`, `removeObstacles(cell)` and
 `setGoal(cell)`, using zero-based `{ row, col }` coordinates. They return a `Result`
@@ -146,7 +149,9 @@ if (goal.ok) editedEnvironment = goal.value;
 ```
 
 Edits may create loops, disconnect cells or make the goal unreachable; solvers
-report unreachable. They may change terrain costs or move the goal. Any
+report unreachable. They may change terrain costs or move the goal. In the mount,
+search continues from the existing frontier against the edited environment.
+Resumed paths follow current passages but need not be shortest. Any
 regeneration discards edits, and edited environments are not reproducible from the seed.
 
 ## Terrain

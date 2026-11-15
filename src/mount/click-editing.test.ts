@@ -154,3 +154,84 @@ it('applies a typed seed on Enter without relying on implicit form submission', 
     handle.destroy(); globals.assertBalanced(host);
   } finally { handle.destroy(); globals.restore(); }
 });
+
+it.each([false, true])('continues finished edits with reduced motion %s and preserves paused intent', reducedMotion => {
+  const globals = instrumentGlobals({ reducedMotion });
+  const host = document.createElement('div');
+  const handle = mountCornrow(host, { seed: 'cornrow', rows: 10, cols: 10, stepsPerSecond: 500 });
+  try {
+    const root = host.firstElementChild?.shadowRoot;
+    const status = () => root?.querySelector('[aria-live]')?.textContent ?? '';
+    const states: string[] = [];
+    let lastPath: readonly number[] = [];
+    handle.on(event => {
+      if (event.type === 'state-change') states.push(event.playback.kind);
+      if (event.type === 'solved') lastPath = event.result.path;
+    });
+    handle.setGoal({ row: 0, col: 1 });
+    expect(status()).toContain('Ready to solve');
+    expect(globals.pendingFrames.size).toBe(0);
+    handle.solve();
+    for (let now = 0; globals.pendingFrames.size && now < 10000; now += 250) globals.frame(now);
+    expect(states.at(-1)).toBe('finished');
+    handle.setGoal({ row: 9, col: 9 });
+    if (reducedMotion) {
+      expect(states.at(-1)).toBe('finished');
+      expect(lastPath.at(-1)).toBe(99);
+      expect(globals.frameRequests).toBe(0);
+      expect(status()).toContain('Goal moved to row 10, column 10. Found a path');
+      expect(status()).not.toContain('search continuing');
+    } else {
+      expect(states.at(-1)).toBe('running');
+      expect(globals.pendingFrames.size).toBe(1);
+      expect(status()).toContain('; search continuing. Continuing search with');
+      for (let now = 10000; globals.pendingFrames.size && now < 20000; now += 250) globals.frame(now);
+      expect(states.at(-1)).toBe('finished');
+      expect(lastPath.at(-1)).toBe(99);
+      expect(status()).toContain('Goal moved to row 10, column 10. Found a path');
+      expect(status()).not.toContain('search continuing');
+      handle.solve(); globals.frame(20000); globals.frame(20010); handle.pause();
+      handle.setGoal({ row: 2, col: 3 });
+      expect(status()).toBe('Goal moved to row 3, column 4; search continuing. Paused continuing search with Breadth-first search');
+      expect(globals.pendingFrames.size).toBe(0);
+    }
+    handle.reset(); expect(status()).not.toContain('search continuing');
+    handle.solve(); expect(status()).not.toContain('search continuing');
+    handle.generate(); expect(status()).not.toContain('search continuing');
+    handle.destroy(); globals.assertBalanced(host);
+  } finally { handle.destroy(); globals.restore(); }
+});
+
+it.each([false, true])('preserves suspended resume intent across edits with explicit pause %s', explicitlyPaused => {
+  const globals = instrumentGlobals();
+  const host = document.createElement('div');
+  const handle = mountCornrow(host, { seed: 'cornrow', rows: 10, cols: 10 });
+  try {
+    handle.solve(); globals.frame(0); globals.frame(100);
+    globals.intersect(false);
+    if (explicitlyPaused) handle.pause();
+    handle.setGoal({ row: 2, col: 3 });
+    expect(globals.pendingFrames.size).toBe(0);
+    globals.intersect(true);
+    expect(globals.pendingFrames.size).toBe(explicitlyPaused ? 0 : 1);
+    handle.destroy(); globals.assertBalanced(host);
+  } finally { handle.destroy(); globals.restore(); }
+});
+
+it('keeps a listener replacement from restoring the discarded edit announcement', () => {
+  const globals = instrumentGlobals();
+  const host = document.createElement('div');
+  const handle = mountCornrow(host, { seed: 'cornrow' });
+  try {
+    handle.solve(); handle.pause();
+    handle.on(event => {
+      if (event.type === 'step' && event.event.type === 'edit') handle.generate({ seed: 'replacement' });
+    });
+    handle.setGoal({ row: 2, col: 3 });
+    const root = host.firstElementChild?.shadowRoot;
+    expect(root?.querySelector('[aria-live]')?.textContent).toBe('Ready to solve with Breadth-first search');
+    expect(root?.querySelector('canvas')?.getAttribute('aria-label')).toContain('seed replacement');
+    expect(globals.pendingFrames.size).toBe(0);
+    handle.destroy(); globals.assertBalanced(host);
+  } finally { handle.destroy(); globals.restore(); }
+});

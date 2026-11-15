@@ -9,7 +9,6 @@ import { createClickEditing } from './click-editing.js';
 import type { CellCoord, SolverId } from '../model/wall-maze.js';
 import { createCanvasSurface } from '../render/canvas-surface.js';
 import { drawMaze } from '../render/draw-maze.js';
-import { selectViewModel } from '../render/select-view-model.js';
 import type { MazeViewModel } from '../render/view-model.js';
 import { getSolver, solverRegistry } from '../search/registry.js';
 import { createBackgroundLoop, type BackgroundLoop } from './background-loop.js';
@@ -115,24 +114,25 @@ export function mountCornrow(element: HTMLElement, initialOptions: MountOptions 
     if (legend) legend.element.hidden = snapshot.generation.environment.kind !== 'terrain';
     const { rows, cols, kind } = snapshot.generation.environment;
     if (kind !== lastKind) { controls?.setEnvironmentKind(kind); lastKind = kind; }
-    if (snapshot.playback.kind !== 'idle') editing?.clear();
+    if (snapshot.playback.kind === 'finished') editing?.finish();
     const label = solverLabel();
     canvas.setAttribute('aria-label', `${options.label}: ${rows} × ${cols} maze, ${snapshot.edited ? 'edited from seed' : 'seed'} ${snapshot.generation.seed}, ${label}`);
-    const outcome = describeOutcome(snapshot.playback, label, snapshot.generation.environment.kind);
+    const outcome = describeOutcome(snapshot.playback, label, snapshot.generation.environment.kind, editing?.continuing ?? false);
     const text = editing?.announcement ? `${editing.announcement}. ${outcome}` : outcome;
     if (status && status.textContent !== text) status.textContent = text;
     controls?.update(snapshot.playback, reduced);
     if (surface === null) fallback.update(snapshot, label);
   }
+  let latestView: MazeViewModel | null = null;
   function paint(view: MazeViewModel): void {
     if (destroyed) return;
+    latestView = view;
     if (surface) drawMaze(surface, view, appearance.render);
     updateText();
   }
   function redraw(): void {
     if (destroyed || controller === null) return;
-    const snapshot = controller.getSnapshot();
-    paint(selectViewModel(snapshot.generation.environment, snapshot.traceState, snapshot.playback));
+    if (latestView !== null) paint(latestView);
   }
   function resize(): void {
     if (destroyed) return;
@@ -148,7 +148,15 @@ export function mountCornrow(element: HTMLElement, initialOptions: MountOptions 
   });
   const playback = controller;
   editing = controls ? createClickEditing({ canvas, surface, controller: playback, disposables, controls,
-    getOptions: () => options, onEdited: () => { runningIntent = false; } }) : null;
+    getOptions: () => options, beforeEdit: () => {
+      const kind = playback.getSnapshot().playback.kind;
+      if (kind === 'running' || kind === 'finished') runningIntent = true;
+    }, afterEdit: () => {
+      const kind = playback.getSnapshot().playback.kind;
+      runningIntent = kind === 'running' || (suspended && kind === 'paused' && runningIntent);
+      if (runningIntent) reconcilePlayback();
+      updateText();
+    } }) : null;
   disposables.add(() => playback.dispose());
   playback.setSpeed(options.stepsPerSecond);
 
@@ -219,6 +227,7 @@ export function mountCornrow(element: HTMLElement, initialOptions: MountOptions 
     },
     solve(id = options.solver) {
       if (destroyed) return;
+      editing?.clear();
       options = normaliseMountOptions({ ...options, solver: id }, options.seed);
       if (controls) controls.algorithm.value = options.solver;
       loop?.restart('solving');
@@ -231,7 +240,7 @@ export function mountCornrow(element: HTMLElement, initialOptions: MountOptions 
       if (destroyed || (!background && playback.getSnapshot().playback.kind !== 'paused')) return;
       runningIntent = true; reconcilePlayback();
     },
-    reset() { if (!destroyed) { runningIntent = false; loop?.restart(); playback.reset(); } },
+    reset() { if (!destroyed) { editing?.clear(); runningIntent = false; loop?.restart(); playback.reset(); } },
     on(listener) { return destroyed ? () => {} : disposables.add(playback.on(listener)); },
     destroy() {
       if (destroyed) return;
@@ -280,6 +289,7 @@ export function mountCornrow(element: HTMLElement, initialOptions: MountOptions 
     });
     disposables.listen(controls.step, 'click', () => {
       if (!reduced || destroyed) return;
+      editing?.clear();
       runningIntent = false;
       const state = playback.getSnapshot().playback;
       if (state.kind === 'finished') playback.replay();
