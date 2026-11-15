@@ -75,6 +75,8 @@ export function createController({ generator, solvers, scheduler, onRender, init
   let frameVersion = 0;
   let disposed = false;
   let edited = false;
+  // Bumped by generate() and edit() so a call can tell that a listener replaced it mid-way.
+  let operation = 0;
   const listeners = new Set<ControllerListener>();
   const active = (): boolean => playback.kind === 'running' || playback.kind === 'paused';
   const emit = (event: ControllerEvent): void => { for (const listener of [...listeners]) listener(event); };
@@ -159,28 +161,36 @@ export function createController({ generator, solvers, scheduler, onRender, init
   const controller: CornrowController = {
     generate(nextOptions = {}) {
       if (disposed) return;
+      const current = ++operation;
       const wasActive = active();
       abandon();
       if (wasActive) setPlayback(finishPlayback(cancelledResult(traceState.visited.size)));
+      if (operation !== current) return;
       options = mergeEnvironmentOptions(options, nextOptions);
       generation = generator(options);
       edited = false;
       traceState = initialTraceState;
       log = []; result = null; carryMs = 0;
       setPlayback({ kind: 'idle' });
+      // A state-change listener may have replaced this generation; announcing it now would contradict the snapshot.
+      if (operation !== current) return;
       emit({ type: 'generated', generation });
       render();
     },
     edit(environment) {
       if (disposed) return;
+      const current = ++operation;
       const wasActive = active();
       abandon();
       if (wasActive) setPlayback(finishPlayback(cancelledResult(traceState.visited.size)));
+      if (operation !== current) return;
       generation = { ...generation, environment };
       traceState = initialTraceState;
       log = []; result = null; carryMs = 0;
       edited = true;
       setPlayback({ kind: 'idle' });
+      // A state-change listener may have replaced this edit; announcing it now would contradict the snapshot.
+      if (operation !== current) return;
       emit({ type: 'edited', environment });
       render();
     },

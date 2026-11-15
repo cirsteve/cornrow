@@ -398,3 +398,26 @@ it('reports unreachable after an edit walls off the goal', () => {
   expect(scheduler.callbacks.size).toBe(0);
   controller.dispose();
 });
+
+it('does not announce an edit or generation that a state-change listener replaced', () => {
+  const { controller, events } = setup();
+  const original = controller.getSnapshot().generation.environment;
+  const changed = setGoal(original, { row: 3, col: 2 });
+  if (!changed.ok) throw new Error(changed.error.detail);
+  let replace = true;
+  controller.on(event => {
+    if (replace && event.type === 'state-change' && event.playback.kind === 'idle') { replace = false; controller.generate({ seed: 'replacement' }); }
+  });
+  events.length = 0;
+  controller.edit(changed.value);
+  const current = controller.getSnapshot();
+  expect(events.filter(event => event.type === 'edited' || event.type === 'generated')).toEqual([{ type: 'generated', generation: current.generation }]);
+  expect(current.edited).toBe(false);
+  replace = true;
+  events.length = 0;
+  controller.generate({ seed: 'outer' });
+  const generated = events.filter(event => event.type === 'generated');
+  expect(generated).toEqual([{ type: 'generated', generation: controller.getSnapshot().generation }]);
+  expect(controller.getSnapshot().generation.seed).toBe('replacement');
+  controller.dispose();
+});

@@ -248,7 +248,9 @@ export function mountCornrow(element: HTMLElement, initialOptions: MountOptions 
     reconcilePlayback();
   }
   if (controls) {
-    for (const event of ['input', 'change']) disposables.listen(controls.area, event, () => handle.setEditRadius(controls.area.valueAsNumber));
+    // While typing, leave an empty or partial field alone; on commit, restore the current radius if it is still empty.
+    disposables.listen(controls.area, 'input', () => { if (Number.isFinite(controls.area.valueAsNumber)) handle.setEditRadius(controls.area.valueAsNumber); });
+    disposables.listen(controls.area, 'change', () => handle.setEditRadius(Number.isFinite(controls.area.valueAsNumber) ? controls.area.valueAsNumber : options.editRadius));
     disposables.listen(controls.generate, 'click', () => handle.generate());
     disposables.listen(controls.solve, 'click', () => handle.solve());
     disposables.listen(controls.pause, 'click', () => playback.getSnapshot().playback.kind === 'paused' ? handle.resume() : handle.pause());

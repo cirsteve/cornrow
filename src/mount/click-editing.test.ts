@@ -51,6 +51,10 @@ it('provides labelled tools, maps CSS clicks, announces edits and balances owner
     expect(handle.addObstacles({ row: 7, col: 7 }).ok).toBe(true);
     expect(wide.ok && env.passages).toEqual(wide.ok && wide.value.passages);
     area.value = '7'; area.dispatchEvent(new Event('input')); expect(area.value).toBe('5');
+    area.value = ''; area.dispatchEvent(new Event('input')); expect(area.value).toBe('');
+    area.value = '0'; area.dispatchEvent(new Event('input')); expect(area.value).toBe('0');
+    area.value = ''; area.dispatchEvent(new Event('input')); area.dispatchEvent(new Event('change')); expect(area.value).toBe('0');
+    handle.setEditRadius(5);
     handle.solve(); expect(status()).not.toContain('Added walls');
     expect(handle.setGoal({ row: 2, col: 3 }).ok).toBe(true);
     expect(handle.removeObstacles({ row: 4, col: 4 }).ok).toBe(true);
