@@ -75,3 +75,15 @@ it('exports appearance values and precise types without a DOM', () => {
   expectTypeOf<AppearancePatch>().toMatchTypeOf<object>();
   expectTypeOf<AppearanceError['kind']>().toEqualTypeOf<'invalid-patch' | 'destroyed'>();
 });
+
+import { cellsInArea, addObstacles, removeObstacles, setGoal, cellAtPoint } from './index.js';
+it('edits through the public entry without a DOM', () => {
+  expect(typeof document).toBe('undefined');
+  expect(typeof window).toBe('undefined');
+  const env = generate({ seed: 'cornrow', rows: 10, cols: 10 }).environment;
+  expect(setGoal(env, { row: 3, col: 7 })).toMatchObject({ ok: true, value: { goal: 37 } });
+  expect(cellsInArea(env, { row: 4, col: 4 }, 0).ok).toBe(true);
+  expect(addObstacles(env, { row: 4, col: 4 }, 1).ok).toBe(true);
+  expect(removeObstacles(env, { row: 4, col: 4 }, 1).ok).toBe(true);
+  expect(cellAtPoint({ cellSize: 10, origin: { x: 0, y: 0 } }, env, { x: 35, y: 25 })).toEqual({ row: 2, col: 3 });
+});

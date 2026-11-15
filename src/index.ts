@@ -104,3 +104,6 @@ export { normaliseHex } from './render/merge-appearance.js';
 export { frontierColor } from './render/frontier-color.js';
 export { formatOverlay } from './render/appearance.js';
 export type { RenderAppearance, RenderPalette, FrontierAppearance, AppearanceError } from './render/appearance.js';
+
+export { cellsInArea, addObstacles, removeObstacles, setGoal, type EditError } from './edit/edit-environment.js';
+export { cellAtPoint } from './render/layout.js';

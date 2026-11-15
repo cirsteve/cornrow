@@ -29,6 +29,8 @@ provides the explicit public core API. Future layers are `src/render`,
 Dependencies flow inward: primitives <- model <- generate/search <-
 render/controller <- mount. Search contracts do not import solver implementations.
 
+Dependencies also flow primitives <- model <- edit, with edit consumed by mount.
+
 Coordinates are (row, col) from the top-left; node id = row * cols + col.
 The 4-neighbour grid uses passage bits N=1, E=2, S=4, W=8: absent passages are
 walls. Neighbours are ordered N, E, S, W. Passages are symmetric. Start defaults

@@ -8,7 +8,9 @@ export interface MazeValidationError {
   readonly node?: NodeId;
 }
 
-/** Validate a generated perfect maze, including connectivity and tree edge count. */
+/** Validate a generated perfect maze, including connectivity and tree edge count.
+ * Validates generated mazes only; not applied to edited environments.
+ */
 export function validateWallMaze(maze: WallMaze): Result<void, MazeValidationError> {
   const fail = (detail: string, node?: NodeId): Result<never, MazeValidationError> =>
     err({ operation: 'validateWallMaze', detail, ...(node === undefined ? {} : { node }) });
