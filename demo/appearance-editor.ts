@@ -27,11 +27,15 @@ export function createAppearanceEditor({ container, handle, initialEnvironment }
   }
   const groups = { maze: fieldset('Maze colors'), terrain: fieldset('Terrain colors'), 'page-and-controls': fieldset('Page and controls') };
   const live = element('div', panel); live.setAttribute('aria-live', 'polite'); live.className = 'appearance-live';
+  // The control whose error the live region shows; its correction clears the message, others' do not.
+  let liveOwner: HTMLElement | null = null;
+  function announce(owner: HTMLElement | null, detail: string) { liveOwner = owner; live.textContent = detail; }
+  function settle(owner: HTMLElement) { if (liveOwner === owner) announce(null, ''); }
   function apply(patch: AppearancePatch): boolean {
     const merged = mergeAppearance(appearance, patch);
-    if (!merged.ok) { live.textContent = merged.error.detail; return false; }
+    if (!merged.ok) { announce(null, merged.error.detail); return false; }
     const applied = handle.setAppearance(patch);
-    if (!applied.ok) { live.textContent = applied.error.detail; return false; }
+    if (!applied.ok) { announce(null, applied.error.detail); return false; }
     appearance = merged.value; return true;
   }
   for (const [index, field] of appearanceFields.entries()) {
@@ -43,8 +47,8 @@ export function createAppearanceEditor({ container, handle, initialEnvironment }
     const swatch = element('span', row); swatch.className = 'appearance-swatch'; swatch.setAttribute('aria-hidden', 'true');
     const error = element('span', row); error.id = picker.id + '-error'; error.className = 'appearance-error';
     text.setAttribute('aria-describedby', error.id);
-    function invalid(detail: string) { text.setAttribute('aria-invalid', 'true'); error.textContent = detail; live.textContent = detail; }
-    function clear() { text.removeAttribute('aria-invalid'); error.textContent = ''; }
+    function invalid(detail: string) { text.setAttribute('aria-invalid', 'true'); error.textContent = detail; announce(text, detail); }
+    function clear() { text.removeAttribute('aria-invalid'); error.textContent = ''; settle(text); }
     function refresh() {
       const value = colorValue(appearance, field.path, pages);
       picker.value = value; text.value = value; swatch.style.backgroundColor = value; clear();
@@ -67,11 +71,11 @@ export function createAppearanceEditor({ container, handle, initialEnvironment }
       alpha.id = picker.id + '-alpha'; alphaLabel.htmlFor = alpha.id;
       const alphaError = element('span', row); alphaError.id = alpha.id + '-error'; alphaError.className = 'appearance-error';
       alpha.setAttribute('aria-describedby', alphaError.id);
-      function clearAlpha() { alpha.removeAttribute('aria-invalid'); alphaError.textContent = ''; }
+      function clearAlpha() { alpha.removeAttribute('aria-invalid'); alphaError.textContent = ''; settle(alpha); }
       listen(alpha, 'input', () => {
         const parsed = parsePercent(alpha.value);
         if (!parsed.ok) {
-          alpha.setAttribute('aria-invalid', 'true'); alphaError.textContent = parsed.error.detail; live.textContent = parsed.error.detail; return;
+          alpha.setAttribute('aria-invalid', 'true'); alphaError.textContent = parsed.error.detail; announce(alpha, parsed.error.detail); return;
         }
         if (apply(alphaPatch(appearance, path, parsed.value))) clearAlpha();
       });
@@ -115,7 +119,7 @@ export function createAppearanceEditor({ container, handle, initialEnvironment }
   const reset = element('button', panel, 'Reset appearance'); reset.type = 'button';
   listen(reset, 'click', () => {
     if (!apply(defaultAppearance)) return;
-    pages = { ...pageDefaults }; rootVariables(); refreshers.forEach(refresh => refresh()); live.textContent = '';
+    pages = { ...pageDefaults }; rootVariables(); refreshers.forEach(refresh => refresh()); announce(null, '');
   });
   disposers.push(handle.on(event => { if (event.type === 'generated') { environment = event.generation.environment.kind; preview(); } }));
   rootVariables(); refreshers.forEach(refresh => refresh()); container.append(panel);

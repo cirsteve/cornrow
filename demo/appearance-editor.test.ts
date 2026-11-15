@@ -43,6 +43,15 @@ it('commits picker and valid hex while retaining invalid drafts and announcing e
   input('input[type=range]', '0'); expect(live.textContent).toBe(message);
   edit('Wall-maze frontier', 'text', '#a1b2c3'); expect(draft.hasAttribute('aria-invalid')).toBe(false);
 });
+it('clears the live announcement when its own field is corrected but keeps another field\'s error', () => {
+  const live = container.querySelector('[aria-live]')!;
+  edit('Wall-maze frontier', 'text', '#12'); expect(live.textContent).not.toBe('');
+  edit('Wall-maze frontier', 'text', '#a1b2c3'); expect(live.textContent).toBe('');
+  edit('visited overlay', 'number', '101'); expect(live.textContent).not.toBe('');
+  edit('visited overlay', 'number', '50'); expect(live.textContent).toBe('');
+  edit('Wall-maze path', 'text', '#12'); const message = live.textContent;
+  edit('Wall-maze frontier', 'text', '#123456'); expect(live.textContent).toBe(message);
+});
 it('preserves overlay channels, isolates terrain bands, and applies root tokens', () => {
   const spy = vi.spyOn(handle, 'setAppearance');
   edit('visited overlay', 'color', '#123456');
