@@ -179,6 +179,8 @@ it.each([false, true])('continues finished edits with reduced motion %s and pres
       expect(states.at(-1)).toBe('finished');
       expect(lastPath.at(-1)).toBe(99);
       expect(globals.frameRequests).toBe(0);
+      expect(status()).toContain('Goal moved to row 10, column 10. Found a path');
+      expect(status()).not.toContain('search continuing');
     } else {
       expect(states.at(-1)).toBe('running');
       expect(globals.pendingFrames.size).toBe(1);
@@ -186,6 +188,8 @@ it.each([false, true])('continues finished edits with reduced motion %s and pres
       for (let now = 10000; globals.pendingFrames.size && now < 20000; now += 250) globals.frame(now);
       expect(states.at(-1)).toBe('finished');
       expect(lastPath.at(-1)).toBe(99);
+      expect(status()).toContain('Goal moved to row 10, column 10. Found a path');
+      expect(status()).not.toContain('search continuing');
       handle.solve(); globals.frame(20000); globals.frame(20010); handle.pause();
       handle.setGoal({ row: 2, col: 3 });
       expect(status()).toBe('Goal moved to row 3, column 4; search continuing. Paused continuing search with Breadth-first search');

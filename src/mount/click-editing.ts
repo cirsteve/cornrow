@@ -23,7 +23,7 @@ interface ClickEditingDependencies {
 export function createClickEditing({ canvas, surface, controller, disposables, controls, getOptions, beforeEdit, afterEdit }: ClickEditingDependencies) {
   let tool: EditTool = 'none';
   let continuing = false;
-  let announcement: string | null = null;
+  let announcement: Omit<Parameters<typeof describeEdit>[0], 'continuing'> | null = null;
   disposables.listen(controls.click, 'change', () => {
     if (isEditTool(controls.click.value)) tool = controls.click.value;
   });
@@ -37,7 +37,7 @@ export function createClickEditing({ canvas, surface, controller, disposables, c
     controller.edit(result.value);
     const playback = controller.getSnapshot().playback;
     continuing = playback.kind === 'running' || playback.kind === 'paused';
-    announcement = describeEdit({ tool: selected, kind: env.kind, cell, continuing });
+    announcement = { tool: selected, kind: env.kind, cell };
     afterEdit();
     return ok(undefined);
   }
@@ -55,5 +55,11 @@ export function createClickEditing({ canvas, surface, controller, disposables, c
     });
     if (cell !== null) applyEdit(tool, cell);
   });
-  return { applyEdit, get announcement() { return announcement; }, get continuing() { return continuing; }, clear() { announcement = null; continuing = false; } };
+  return {
+    applyEdit,
+    get announcement() { return announcement === null ? null : describeEdit({ ...announcement, continuing }); },
+    get continuing() { return continuing; },
+    finish() { continuing = false; },
+    clear() { announcement = null; continuing = false; },
+  };
 }

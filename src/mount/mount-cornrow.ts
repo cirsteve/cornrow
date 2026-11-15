@@ -115,6 +115,7 @@ export function mountCornrow(element: HTMLElement, initialOptions: MountOptions 
     if (legend) legend.element.hidden = snapshot.generation.environment.kind !== 'terrain';
     const { rows, cols, kind } = snapshot.generation.environment;
     if (kind !== lastKind) { controls?.setEnvironmentKind(kind); lastKind = kind; }
+    if (snapshot.playback.kind === 'finished') editing?.finish();
     const label = solverLabel();
     canvas.setAttribute('aria-label', `${options.label}: ${rows} × ${cols} maze, ${snapshot.edited ? 'edited from seed' : 'seed'} ${snapshot.generation.seed}, ${label}`);
     const outcome = describeOutcome(snapshot.playback, label, snapshot.generation.environment.kind, editing?.continuing ?? false);

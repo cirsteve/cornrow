@@ -202,6 +202,7 @@ export function createController({ generator, solvers, scheduler, onRender, init
           previousMs = null;
           if (applied.hasMoreToSearch) {
             result = null;
+            // begin() creates a session only after selecting its solver; abandonment clears the session.
             setPlayback({ kind: 'running', solverLabel: selected!.label });
             if (operation !== current) return;
           } else {

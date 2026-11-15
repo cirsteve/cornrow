@@ -1,3 +1,5 @@
+import type { MazeViewModel } from '../render/view-model.js';
+import { selectViewModel } from '../render/select-view-model.js';
 import { openNeighbours } from '../model/wall-maze.js';
 import { describe, expect, it, vi } from 'vitest';
 import { recursiveBacktracker } from '../generate/recursive-backtracker';
@@ -420,9 +422,15 @@ it('folds paused invalidation immediately and replays edits from the solve envir
   if (!goal.ok) throw new Error('goal');
   controller.edit(goal.value); controller.runToEnd();
   const live = controller.getSnapshot().traceState;
-  const view = onRender.mock.calls.at(-1)?.[0];
+  const view: MazeViewModel | undefined = onRender.mock.calls.at(-1)?.[0];
   controller.replay();
-  expect(onRender.mock.calls.at(-1)?.[0]).not.toEqual(view);
+  scheduler.frame(0); scheduler.frame(100);
+  const beforeEditView: MazeViewModel | undefined = onRender.mock.calls.at(-1)?.[0];
+  expect(beforeEditView?.goal).toBe(comparisonMaze.goal);
+  const originalView = selectViewModel(comparisonMaze, initialTraceState, controller.getSnapshot().playback);
+  expect(beforeEditView?.cells.map(cell => cell.wallMask)).toEqual(originalView.cells.map(cell => cell.wallMask));
+  expect(beforeEditView?.goal).not.toBe(view?.goal);
+  expect(beforeEditView?.cells.map(cell => cell.wallMask)).not.toEqual(view?.cells.map(cell => cell.wallMask));
   controller.runToEnd();
   expect(controller.getSnapshot().traceState).toEqual(live);
   expect(onRender.mock.calls.at(-1)?.[0]).toEqual(view);
