@@ -9,7 +9,7 @@ import type { Disposables } from './disposables.js';
 import type { NormalisedMountOptions } from './options.js';
 import { describeEdit } from './status-text.js';
 
-export function createClickEditing({ canvas, surface, controller, disposables, controls, getOptions, onEdited }: {
+interface ClickEditingDependencies {
   canvas: HTMLCanvasElement;
   surface: CanvasSurface | null;
   controller: CornrowController;
@@ -17,9 +17,11 @@ export function createClickEditing({ canvas, surface, controller, disposables, c
   controls: ReturnType<typeof createControls>;
   getOptions: () => NormalisedMountOptions;
   onEdited: () => void;
-}) {
+}
+
+export function createClickEditing({ canvas, surface, controller, disposables, controls, getOptions, onEdited }: ClickEditingDependencies) {
   let tool: EditTool = 'none';
-  let announcement = '';
+  let announcement: string | null = null;
   disposables.listen(controls.click, 'change', () => {
     if (isEditTool(controls.click.value)) tool = controls.click.value;
   });
@@ -42,5 +44,5 @@ export function createClickEditing({ canvas, surface, controller, disposables, c
     const cell = cellAtPoint(layout, env, { x: event.clientX - rect.left, y: event.clientY - rect.top });
     if (cell !== null) applyEdit(tool, cell);
   });
-  return { applyEdit, get announcement() { return announcement; }, clear() { announcement = ''; } };
+  return { applyEdit, get announcement() { return announcement; }, clear() { announcement = null; } };
 }
