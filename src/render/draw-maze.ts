@@ -1,6 +1,7 @@
 import type { DrawingSurface, Point, Rect, Segment } from './drawing-surface.js';
 import { computeLayout } from './layout.js';
-import { palette } from './palette.js';
+import { defaultRenderAppearance, formatOverlay, type RenderAppearance } from './appearance.js';
+import { frontierColor } from './frontier-color.js';
 import { WALL_NORTH, WALL_EAST, WALL_SOUTH, WALL_WEST, type MazeViewModel } from './view-model.js';
 
 /** Cell-relative circles shared by the terrain canvas and its legend. */
@@ -9,7 +10,8 @@ export function terrainPips(band: 0 | 1 | 2 | 3): readonly { readonly center: Po
     .slice(0, band).map(center => ({ center, radius: 0.04 }));
 }
 
-export function drawMaze(surface: DrawingSurface, view: MazeViewModel): void {
+export function drawMaze(surface: DrawingSurface, view: MazeViewModel, appearance: RenderAppearance = defaultRenderAppearance): void {
+  const palette = appearance.palette;
   const { cellSize: size, origin } = computeLayout(view.rows, view.cols, surface.size());
   surface.clear(palette.background);
   if (size === 0) return;
@@ -35,21 +37,25 @@ export function drawMaze(surface: DrawingSurface, view: MazeViewModel): void {
     if (size >= 14) view.cells.forEach((cell, node) => {
       const { x, y } = rect(node);
       if (cell.costBand !== null) for (const pip of terrainPips(cell.costBand)) {
-        surface.fillCircle({ x: x + pip.center.x * size, y: y + pip.center.y * size }, pip.radius * size, palette.walls);
+        surface.fillCircle({ x: x + pip.center.x * size, y: y + pip.center.y * size }, pip.radius * size, palette.terrainPip);
       }
     });
   }
   const failure = view.playback.kind === 'finished' && view.playback.outcome === 'unreachable';
   const cancelled = view.playback.kind === 'finished' && view.playback.outcome === 'cancelled';
   const visitedColor = terrain
-    ? failure ? palette.failureVisitedOverlay : cancelled ? palette.cancelledOverlay : palette.visitedOverlay
+    ? formatOverlay(failure ? palette.failureVisitedOverlay : cancelled ? palette.cancelledOverlay : palette.visitedOverlay)
     : failure ? palette.failureVisited : cancelled ? palette.cancelled : palette.visited;
   view.cells.forEach((cell, node) => {
     if (cell.layer === 'visited' || cell.layer === 'path') surface.fillRect(rect(node), visitedColor);
   });
   // Inset frontier squares differ from the full visited fills even without colour.
   view.cells.forEach((cell, node) => {
-    if (cell.layer === 'frontier') surface.fillRect(rect(node, size * 0.2), markers.frontier);
+    if (cell.layer === 'frontier') {
+      const color = frontierColor(markers.frontier, appearance.frontier.saturationScale);
+      if (appearance.frontier.shape === 'circle') surface.fillCircle(center(node), size * 0.3, color);
+      else surface.fillRect(rect(node, size * 0.2), color);
+    }
   });
   const wallWidth = Math.min(2, size * 0.06);
   if (view.path !== null && view.path.length > 0) surface.polyline(view.path.map(center), markers.path, size * 0.22);

@@ -2,6 +2,7 @@ import type { ControllerSnapshot } from '../controller/controller.js';
 
 export function createFallbackSummary(document: Document) {
   const element = document.createElement('dl');
+  element.className = 'fallback-summary';
   element.setAttribute('aria-label', 'Maze summary');
   const entries = ['Seed', 'Size', 'Solver', 'Outcome', 'Path length', 'Explored count'].map(label => {
     const term = document.createElement('dt'); term.textContent = label;

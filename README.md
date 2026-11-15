@@ -153,6 +153,76 @@ Background mounts also accept `environment: 'terrain'` and `openness`.
 - The controller generator type changes to `(options: EnvironmentOptions) => GenerationResult<Environment, EnvironmentOptions>`.
 - `CornrowHandle.generate` accepts `environment` and `openness` via `MountOptions`.
 
+## Appearance
+
+Each mount owns its appearance. Pass an `appearance: AppearancePatch` in
+`MountOptions`, or call `handle.setAppearance(patch)` to redraw the current
+snapshot without changing playback, generation, solver selection or scheduling.
+It returns `Result<void, AppearanceError>`; after destroy it returns a
+`destroyed` error. Invalid initial appearance falls back silently to defaults.
+Validate first with `mergeAppearance` when you need the failing path and detail.
+
+```ts
+import { mountCornrow, defaultAppearance, mergeAppearance, type AppearancePatch } from '@cirsteve/cornrow';
+
+const patch: AppearancePatch = {
+  render: {
+    palette: {
+      walls: '#123456',
+      terrain: { 1: '#00FF00' },
+      terrainMarkers: { frontier: '#684500' },
+      visitedOverlay: { rgb: '#00466E', alpha: 0.2 },
+    },
+    frontier: { shape: 'circle', saturationScale: 0.8 },
+  },
+  ui: { controlAccent: '#2865C1' },
+};
+const validated = mergeAppearance(defaultAppearance, patch);
+if (validated.ok) {
+  const handle = mountCornrow(document.querySelector<HTMLElement>('#maze')!, { appearance: patch });
+  const result = handle.setAppearance({ render: { frontier: { shape: 'square' } } });
+  if (!result.ok) console.error(result.error.detail);
+  // Reset every field with complete defaults; {} retains the current values.
+  handle.setAppearance(defaultAppearance);
+}
+```
+
+`AppearancePatch` accepts `render.palette`, `render.frontier` and `ui`.
+Palette fields include all legacy colors plus independent `terrainPip`
+(default '#222222', initially the wall color). Terrain accepts a full four-color
+tuple or individual keys 0–3. `terrainMarkers` and structured overlays
+`{ rgb, alpha }` merge by key; alpha must be finite and in [0, 1].
+Frontier shape is 'square' or 'circle'; saturationScale is finite in [0, 2],
+with 1 preserving the base color exactly. All unknown keys and invalid colors
+reject the entire patch. Omitted values retain their current setting.
+
+`defaultAppearance` is deeply frozen. `mergeAppearance(current, patch)` is a
+pure validator and merge returning a Result. `normaliseHex` accepts only
+#RRGGBB strings and returns uppercase branded colors in a Result.
+`frontierColor(base, scale)` derives saturation from the stored base without
+cumulative drift. `formatOverlay({ rgb, alpha })` formats structured overlays
+as rgba strings. Headless rendering accepts `drawMaze(surface, view, appearance)`
+with an optional third argument of type `RenderAppearance`; use
+`defaultAppearance.render` for the defaults.
+
+Mounted UI tokens apply only to the mount-owned wrapper, as these CSS variables:
+
+| Token | CSS variable | Default | Colors |
+| --- | --- | --- | --- |
+| text | --cornrow-text | #172B21 | General text |
+| statusText | --cornrow-status-text | #172B21 | Status text |
+| fallbackText | --cornrow-fallback-text | #172B21 | Canvas fallback summary |
+| controlBackground | --cornrow-control-background | #FFFFFF | Control background |
+| controlText | --cornrow-control-text | #172B21 | Control text |
+| controlBorder | --cornrow-control-border | #767676 | Control border |
+| controlHoverBackground | --cornrow-control-hover-background | #EEF2EF | Hovered controls |
+| controlDisabledBackground | --cornrow-control-disabled-background | #F0F0F0 | Disabled control background |
+| controlDisabledText | --cornrow-control-disabled-text | #6B6B6B | Disabled control text |
+| focusRing | --cornrow-focus-ring | #2865C1 | Focus outline |
+| controlAccent | --cornrow-control-accent | #2865C1 | Range, checkbox and radio accent |
+| validationText | --cornrow-validation-text | #B00020 | Validation messages in consuming UI |
+| legendBorder | --cornrow-legend-border | #222222 | Terrain swatch border |
+
 ## Development
 
 ```sh
