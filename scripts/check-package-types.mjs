@@ -20,7 +20,7 @@ try {
   writeFileSync(join(consumer, 'package.json'), JSON.stringify({ private: true, type: 'module' }));
   run('npm', ['install', join(consumer, packed.filename), '--ignore-scripts', '--offline', '--package-lock=false', '--no-audit', '--no-fund'], consumer);
   writeFileSync(join(consumer, 'index.ts'), `
-import { generate, getSolver, solve, mountCornrow, type MountOptions } from '@cirsteve/cornrow';
+import { generate, getSolver, solve, mountCornrow, type MountOptions, defaultAppearance, mergeAppearance, normaliseHex, frontierColor, formatOverlay, type AppearancePatch, type RenderAppearance, type RenderPalette, type FrontierAppearance, type AppearanceError, type CornrowAppearance, type MountedUiTokens } from '@cirsteve/cornrow';
 
 const generated = generate({ seed: 'cornrow', rows: 10, cols: 10 });
 for (const solver of ['bfs', 'astar']) {
@@ -34,6 +34,23 @@ for (const solver of ['bfs', 'astar']) {
 }
 const options: MountOptions = { mode: 'background', rows: 10, cols: 10 };
 const handle = mountCornrow(document.createElement('div'), options);
+const patch: AppearancePatch = { render: { palette: { terrain: { 1: '#00FF00' } }, frontier: { shape: 'circle', saturationScale: 1.5 } }, ui: { controlAccent: '#2865C1' } };
+const merged = mergeAppearance(defaultAppearance, patch);
+if (merged.ok) {
+  const combined: CornrowAppearance = merged.value;
+  const render: RenderAppearance = combined.render;
+  const palette: RenderPalette = render.palette;
+  const frontier: FrontierAppearance = render.frontier;
+  const ui: MountedUiTokens = combined.ui;
+  console.log(frontierColor(palette.frontier, frontier.saturationScale), formatOverlay(palette.visitedOverlay), normaliseHex(ui.text));
+} else { const error: AppearanceError = merged.error; console.log(error.kind); }
+const themed = mountCornrow(document.createElement('div'), { appearance: patch });
+const updated = themed.setAppearance(patch);
+if (!updated.ok) console.log(updated.error.kind);
+// @ts-expect-error invalid frontier shape
+handle.setAppearance({ render: { frontier: { shape: 'triangle' } } });
+// @ts-expect-error UI tokens must be strings
+const badAppearance: MountOptions = { appearance: { ui: { controlAccent: 42 } } };
 handle.pause(); handle.resume(); handle.destroy();
 // Ensure broken declarations cannot silently turn this API into any.
 // @ts-expect-error rows must be a number

@@ -9,7 +9,9 @@ import { palette } from '../render/palette.js';
 it('builds a noninteractive cost legend with the canvas pip geometry and caller-supplied swatches', () => {
   // Structural test data, not a proposed terrain palette.
   const bands = ['#ffffff', '#eeeeee', '#dddddd', '#cccccc'] as const;
-  const legend = createTerrainLegend(document, bands);
+  const created = createTerrainLegend(document);
+  created.update(bands, '#222222');
+  const legend = created.element;
   expect(legend.getAttribute('aria-label')).toBe('Terrain costs');
   expect(legend.textContent).toBe('Cost 1 / 2 / 4 / 8');
   expect(legend.querySelectorAll('button,input,select,[tabindex]')).toHaveLength(0);

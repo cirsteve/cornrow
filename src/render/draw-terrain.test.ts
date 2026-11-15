@@ -130,3 +130,65 @@ it('only clears a hidden terrain surface', () => {
   drawMaze(surface, terrainView());
   expect(surface.calls).toEqual([{ method: 'clear', color: palette.background }]);
 });
+
+import { defaultRenderAppearance, formatOverlay } from './appearance.js';
+import { mergeRenderAppearance } from './merge-appearance.js';
+import { frontierColor } from './frontier-color.js';
+
+it.each(['terrain', 'wall-maze'] as const)('routes every custom color and preserves draw order in %s', environment => {
+  const merged = mergeRenderAppearance(defaultRenderAppearance, { palette: {
+    background: '#010101', walls: '#020202', terrainPip: '#030303',
+    terrain: ['#040404', '#050505', '#060606', '#070707'],
+    visited: '#080808', failureVisited: '#090909', cancelled: '#101010',
+    frontier: '#A08060', path: '#111111', start: '#121212', goal: '#131313', current: '#141414', error: '#151515',
+    terrainMarkers: { frontier: '#6080A0', path: '#161616', start: '#171717', goal: '#181818', current: '#191919', error: '#202020' },
+    visitedOverlay: { rgb: '#212121', alpha: 0.21 },
+    failureVisitedOverlay: { rgb: '#222222', alpha: 0.22 },
+    cancelledOverlay: { rgb: '#232323', alpha: 0.23 },
+  }, frontier: { saturationScale: 0 } });
+  if (!merged.ok) throw new Error('Invalid fixture');
+  const appearance = merged.value, p = appearance.palette;
+  const markers = environment === 'terrain' ? p.terrainMarkers : p;
+  for (const outcome of ['found', 'unreachable', 'cancelled'] as const) {
+    const base = terrainView({ kind: 'finished', outcome, pathLength: 5, pathCost: 11, exploredCount: 20 });
+    const view: MazeViewModel = { ...base, environment, cells: base.cells.map((cell, node) => ({ ...cell, costBand: ([0, 1, 2, 3] as const)[node % 4] ?? 0 })) };
+    const original = new RecordingSurface({ width: 100, height: 100 });
+    const custom = new RecordingSurface({ width: 100, height: 100 });
+    drawMaze(original, view); drawMaze(custom, view, appearance);
+    expect(custom.calls.map(call => call.method)).toEqual(original.calls.map(call => call.method));
+    expect(custom.calls[0]).toEqual({ method: 'clear', color: p.background });
+    const overlay = outcome === 'unreachable' ? p.failureVisitedOverlay : outcome === 'cancelled' ? p.cancelledOverlay : p.visitedOverlay;
+    const visited = environment === 'terrain' ? formatOverlay(overlay) : outcome === 'unreachable' ? p.failureVisited : outcome === 'cancelled' ? p.cancelled : p.visited;
+    expect(custom.calls.filter(call => call.color === visited)).toHaveLength(5);
+    for (const color of [frontierColor(markers.frontier, 0), markers.path, p.walls, markers.start, outcome === 'unreachable' ? markers.error : markers.goal, markers.current])
+      expect(custom.calls.some(call => call.color === color)).toBe(true);
+    expect(custom.calls.at(-1)).toMatchObject({ method: 'polyline', color: markers.current });
+    if (outcome === 'unreachable') expect(custom.calls.at(-2)).toMatchObject({ method: 'strokeLines', color: markers.error });
+    if (environment === 'terrain') {
+      for (const band of p.terrain) expect(custom.calls.some(call => call.color === band && call.method === 'fillRect')).toBe(true);
+      const pips = custom.calls.filter(call => call.color === p.terrainPip);
+      expect(pips).toHaveLength(view.cells.reduce((sum, cell) => sum + (cell.costBand ?? 0), 0));
+      expect(pips.every(call => call.method === 'fillCircle')).toBe(true);
+      expect(p.terrainPip).not.toBe(p.walls);
+    }
+  }
+});
+
+it.each([14, 28, 80])('keeps a circle frontier clear of all cost-band-3 pips at %s px', size => {
+  const merged = mergeRenderAppearance(defaultRenderAppearance, { frontier: { shape: 'circle' } });
+  if (!merged.ok) throw new Error('fixture');
+  const original = terrainView();
+  const view: MazeViewModel = { ...original, cells: original.cells.map(cell => ({ ...cell, costBand: 3 })) };
+  const surface = new RecordingSurface({ width: size * 5, height: size * 5 });
+  drawMaze(surface, view, merged.value);
+  const circle = surface.calls.find(call => call.method === 'fillCircle' && call.color === palette.terrainMarkers.frontier);
+  if (circle?.method !== 'fillCircle') throw new Error('Missing circle');
+  expect(circle.radius).toBe(size * 0.3);
+  expect(surface.calls.some(call => call.method === 'fillRect' && call.color === circle.color)).toBe(false);
+  const pips = surface.calls.filter(call => call.method === 'fillCircle' && call.color === palette.walls);
+  expect(pips).toHaveLength(75);
+  for (const pip of pips) {
+    if (pip.method !== 'fillCircle') throw new Error('Missing pip');
+    expect(Math.hypot(circle.center.x - pip.center.x, circle.center.y - pip.center.y) - circle.radius - pip.radius).toBeGreaterThan(0);
+  }
+});

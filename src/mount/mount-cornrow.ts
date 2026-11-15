@@ -1,3 +1,6 @@
+import { ok, err, type Result } from '../primitives/result.js';
+import type { AppearanceError } from '../render/appearance.js';
+import { defaultAppearance, mergeAppearance, uiVariables, type AppearancePatch } from './appearance.js';
 import { createController, type ControllerListener, type CornrowController } from '../controller/controller.js';
 import { createAnimationFrameScheduler, type FrameScheduler } from '../controller/frame-scheduler.js';
 import { generateEnvironment } from '../generate/environment.js';
@@ -20,6 +23,7 @@ import { describeOutcome } from './status-text.js';
 import { mountStyles } from './styles.js';
 
 export interface CornrowHandle {
+  setAppearance(patch: AppearancePatch): Result<void, AppearanceError>;
   generate(options?: MountOptions): void;
   solve(solverId?: SolverId): void;
   pause(): void;
@@ -35,6 +39,12 @@ export function mountCornrow(element: HTMLElement, initialOptions: MountOptions 
   const disposables = new Disposables();
   let options = normaliseMountOptions(initialOptions, initialOptions.seed ?? randomSeed());
   const wrapper = document.createElement('div'); wrapper.setAttribute('data-cornrow', '');
+  const initialAppearance = mergeAppearance(defaultAppearance, initialOptions.appearance ?? {});
+  let appearance = initialAppearance.ok ? initialAppearance.value : defaultAppearance;
+  function applyUi(): void {
+    for (const [name, value] of uiVariables(appearance.ui)) wrapper.style.setProperty(name, value);
+  }
+  applyUi();
   const background = options.mode === 'background';
   wrapper.setAttribute('data-mode', options.mode);
   if (background) { wrapper.style.pointerEvents = 'none'; wrapper.setAttribute('aria-hidden', 'true'); }
@@ -43,12 +53,15 @@ export function mountCornrow(element: HTMLElement, initialOptions: MountOptions 
   const canvas = document.createElement('canvas'); canvas.setAttribute('role', 'img');
   const controls = background ? null : createControls(document, options);
   const legend = background ? null : createTerrainLegend(document);
-  if (legend) legend.hidden = options.environment !== 'terrain';
+  if (legend) {
+    legend.element.hidden = options.environment !== 'terrain';
+    legend.update(appearance.render.palette.terrain, appearance.render.palette.terrainPip);
+  }
   const status = background ? null : document.createElement('p');
   if (status) { status.className = 'status'; status.setAttribute('aria-live', 'polite'); }
   const fallback = createFallbackSummary(document);
   shadow.append(style, canvas, fallback.element);
-  if (controls && legend && status) shadow.append(controls.form, legend, status);
+  if (controls && legend && status) shadow.append(controls.form, legend.element, status);
   element.append(wrapper);
   disposables.add(() => wrapper.remove());
 
@@ -86,7 +99,7 @@ export function mountCornrow(element: HTMLElement, initialOptions: MountOptions 
   function updateText(): void {
     if (controller === null) return;
     const snapshot = controller.getSnapshot();
-    if (legend) legend.hidden = snapshot.generation.environment.kind !== 'terrain';
+    if (legend) legend.element.hidden = snapshot.generation.environment.kind !== 'terrain';
     const { rows, cols } = snapshot.generation.environment;
     const label = solverLabel();
     canvas.setAttribute('aria-label', `${options.label}: ${rows} × ${cols} maze, seed ${snapshot.generation.seed}, ${label}`);
@@ -97,7 +110,7 @@ export function mountCornrow(element: HTMLElement, initialOptions: MountOptions 
   }
   function paint(view: MazeViewModel): void {
     if (destroyed) return;
-    if (surface) drawMaze(surface, view);
+    if (surface) drawMaze(surface, view, appearance.render);
     updateText();
   }
   function redraw(): void {
@@ -152,6 +165,16 @@ export function mountCornrow(element: HTMLElement, initialOptions: MountOptions 
     controls.speed.value = String(options.stepsPerSecond);
   }
   const handle: CornrowHandle = {
+    setAppearance(patch) {
+      if (destroyed) return err({ kind: 'destroyed', operation: 'setAppearance', detail: 'The Cornrow handle has been destroyed.' });
+      const result = mergeAppearance(appearance, patch);
+      if (!result.ok) return result;
+      appearance = result.value;
+      applyUi();
+      legend?.update(appearance.render.palette.terrain, appearance.render.palette.terrainPip);
+      redraw();
+      return ok(undefined);
+    },
     generate(next = {}) {
       if (destroyed) return;
       runningIntent = background;
