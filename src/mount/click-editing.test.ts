@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { expect, it } from 'vitest';
+import { expect, it, vi } from 'vitest';
 import { mountCornrow } from './mount-cornrow.js';
 import { instrumentGlobals } from './test-support/instrument-globals.js';
 import { computeLayout } from '../render/layout.js';
@@ -17,6 +17,7 @@ it('provides labelled tools, maps CSS clicks, announces edits and balances owner
     const click = Array.from(root?.querySelectorAll('label') ?? []).find(l => l.firstChild?.textContent === 'Click')?.querySelector('select');
     const area = Array.from(root?.querySelectorAll('label') ?? []).find(l => l.firstChild?.textContent === 'Area')?.querySelector('input');
     if (!canvas || !click || !area) throw new Error('Missing editing controls');
+    vi.spyOn(canvas, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 0, 480, 480));
     const status = () => root?.querySelector('[aria-live]')?.textContent;
     expect(Array.from(click.options).map(o => o.value)).toEqual(['none', 'add', 'remove', 'goal']);
     expect(Array.from(click.options).map(o => o.textContent)).toEqual(['None', 'Add walls', 'Remove walls', 'Move goal']);
@@ -75,12 +76,77 @@ it('ignores letterbox clicks and initially labels terrain tools', () => {
     const click = Array.from(root?.querySelectorAll('select') ?? []).find(s => s.options[0]?.value === 'none');
     const canvas = root?.querySelector('canvas');
     if (!click || !canvas) throw new Error('Missing controls');
+    vi.spyOn(canvas, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 0, 480, 480));
     expect(click.options[1]?.textContent).toBe('Raise cost'); expect(click.options[2]?.textContent).toBe('Lower cost');
     click.value = 'goal'; click.dispatchEvent(new Event('change'));
     let edits = 0; handle.on(event => { if (event.type === 'edited') edits++; });
     const before = root?.querySelector('[aria-live]')?.textContent;
     canvas.dispatchEvent(new MouseEvent('click', { clientX: 240, clientY: 1 }));
     expect(edits).toBe(0); expect(root?.querySelector('[aria-live]')?.textContent).toBe(before);
+    handle.destroy(); globals.assertBalanced(host);
+  } finally { handle.destroy(); globals.restore(); }
+});
+
+it.each([0.5, 2])('maps clicks through a host scale of %s', scale => {
+  const globals = instrumentGlobals(); const host = document.createElement('div');
+  const handle = mountCornrow(host, { seed: 'cornrow', rows: 10, cols: 10 });
+  try {
+    const root = host.firstElementChild?.shadowRoot;
+    const canvas = root?.querySelector('canvas');
+    const click = Array.from(root?.querySelectorAll('select') ?? []).find(s => s.options[0]?.value === 'none');
+    if (!canvas || !click) throw new Error('Missing controls');
+    let goal = -1; handle.on(event => { if (event.type === 'edited') goal = event.environment.goal; });
+    click.value = 'goal'; click.dispatchEvent(new Event('change'));
+    const layout = computeLayout(10, 10, { width: 480, height: 480 });
+    const point = { x: layout.origin.x + 3.5 * layout.cellSize, y: layout.origin.y + 2.5 * layout.cellSize };
+    vi.spyOn(canvas, 'getBoundingClientRect').mockReturnValue(new DOMRect(40, 60, 480 * scale, 480 * scale));
+    canvas.dispatchEvent(new MouseEvent('click', { clientX: 40 + point.x * scale, clientY: 60 + point.y * scale }));
+    expect(goal).toBe(23);
+    goal = -1;
+    vi.spyOn(canvas, 'getBoundingClientRect').mockReturnValue(new DOMRect(40, 60, 0, 0));
+    canvas.dispatchEvent(new MouseEvent('click', { clientX: 40, clientY: 60 }));
+    expect(goal).toBe(-1);
+    handle.destroy(); globals.assertBalanced(host);
+  } finally { handle.destroy(); globals.restore(); }
+});
+
+it('accepts click coordinates from another window', () => {
+  const globals = instrumentGlobals(); const host = document.createElement('div');
+  const handle = mountCornrow(host, { seed: 'cornrow', rows: 10, cols: 10 });
+  const iframe = document.createElement('iframe'); document.body.append(iframe);
+  try {
+    const root = host.firstElementChild?.shadowRoot;
+    const canvas = root?.querySelector('canvas');
+    const click = Array.from(root?.querySelectorAll('select') ?? []).find(s => s.options[0]?.value === 'none');
+    if (!canvas || !click) throw new Error('Missing controls');
+    vi.spyOn(canvas, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 0, 480, 480));
+    click.value = 'goal'; click.dispatchEvent(new Event('change'));
+    let goal = -1; handle.on(event => { if (event.type === 'edited') goal = event.environment.goal; });
+    const layout = computeLayout(10, 10, { width: 480, height: 480 });
+    const iframeWindow = iframe.contentDocument?.defaultView;
+    if (!iframeWindow) throw new Error('Missing iframe window');
+    const event = new iframeWindow.MouseEvent('click', { clientX: layout.origin.x + 3.5 * layout.cellSize, clientY: layout.origin.y + 2.5 * layout.cellSize });
+    // Happy-dom shares constructors across windows; model a distinct parent realm.
+    vi.stubGlobal('MouseEvent', class ParentMouseEvent extends Event {});
+    expect(event instanceof MouseEvent).toBe(false);
+    canvas.dispatchEvent(event);
+    expect(goal).toBe(23);
+    handle.destroy(); globals.assertBalanced(host);
+  } finally { handle.destroy(); globals.restore(); iframe.remove(); }
+});
+
+it('applies a typed seed on Enter without relying on implicit form submission', () => {
+  const globals = instrumentGlobals(); const host = document.createElement('div');
+  const handle = mountCornrow(host, { seed: 'cornrow' });
+  try {
+    const root = host.firstElementChild?.shadowRoot;
+    const seed = root?.querySelector('input[type=text]');
+    if (!(seed instanceof HTMLInputElement)) throw new Error('Missing seed');
+    seed.value = 'entered-seed'; seed.focus();
+    const enter = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
+    seed.dispatchEvent(enter);
+    expect(enter.defaultPrevented).toBe(true);
+    expect(root?.querySelector('canvas')?.getAttribute('aria-label')).toContain('seed entered-seed,');
     handle.destroy(); globals.assertBalanced(host);
   } finally { handle.destroy(); globals.restore(); }
 });

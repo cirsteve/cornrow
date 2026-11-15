@@ -256,6 +256,11 @@ export function mountCornrow(element: HTMLElement, initialOptions: MountOptions 
     disposables.listen(controls.form, 'submit', event => {
       event.preventDefault(); handle.generate({ seed: controls.seed.value });
     });
+    disposables.listen(controls.seed, 'keydown', event => {
+      if ('key' in event && event.key === 'Enter' && !('isComposing' in event && event.isComposing)) {
+        event.preventDefault(); handle.generate({ seed: controls.seed.value });
+      }
+    });
     disposables.listen(controls.speed, 'input', () => {
       options = normaliseMountOptions({ ...options, stepsPerSecond: controls.speed.valueAsNumber }, options.seed);
       playback.setSpeed(options.stepsPerSecond); controls.speed.value = String(options.stepsPerSecond);

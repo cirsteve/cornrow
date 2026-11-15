@@ -37,11 +37,17 @@ export function createClickEditing({ canvas, surface, controller, disposables, c
     return ok(undefined);
   }
   if (surface !== null) disposables.listen(canvas, 'click', event => {
-    if (tool === 'none' || !(event instanceof MouseEvent)) return;
+    if (tool === 'none' || !('clientX' in event) || !('clientY' in event)
+      || typeof event.clientX !== 'number' || typeof event.clientY !== 'number') return;
     const rect = canvas.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return;
     const env = controller.getSnapshot().generation.environment;
-    const layout = computeLayout(env.rows, env.cols, surface.size());
-    const cell = cellAtPoint(layout, env, { x: event.clientX - rect.left, y: event.clientY - rect.top });
+    const size = surface.size();
+    const layout = computeLayout(env.rows, env.cols, size);
+    const cell = cellAtPoint(layout, env, {
+      x: (event.clientX - rect.left) * size.width / rect.width,
+      y: (event.clientY - rect.top) * size.height / rect.height,
+    });
     if (cell !== null) applyEdit(tool, cell);
   });
   return { applyEdit, get announcement() { return announcement; }, clear() { announcement = null; } };
