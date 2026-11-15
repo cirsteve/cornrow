@@ -87,12 +87,13 @@ export function createAppearanceEditor({ container, handle, initialEnvironment }
       refreshers.push(source => { if (source && alpha.hasAttribute('aria-invalid')) return; alpha.value = formatAlpha(appearance.render.palette[path.key].alpha); clearAlpha(); });
     }
     refreshers.push(refresh);
+    return refresh;
   }
   for (const [index, field] of appearanceFields.entries()) {
     colorRow(groups[field.group], field.label, `${prefix}-${index}`, () => field.path);
   }
   const frontier = fieldset('Frontier');
-  colorRow(frontier, 'Frontier base color', `${prefix}-frontier-base`, () => frontierBasePath(environment));
+  const refreshFrontierBase = colorRow(frontier, 'Frontier base color', `${prefix}-frontier-base`, () => frontierBasePath(environment));
   const radios = (['square', 'circle'] as const).map(shape => {
     const label = element('label', frontier, shape === 'square' ? 'Square' : 'Circle');
     const radio = element('input', label); radio.type = 'radio'; radio.name = prefix + '-shape'; radio.value = shape;
@@ -131,7 +132,7 @@ export function createAppearanceEditor({ container, handle, initialEnvironment }
     pages = { ...pageDefaults }; rootVariables(); refreshers.forEach(refresh => refresh()); announce(null, '');
   });
   disposers.push(handle.on(event => { if (event.type === 'generated') { if (environment !== event.generation.environment.kind) {
-    environment = event.generation.environment.kind; refreshers.forEach(refresh => refresh());
+    environment = event.generation.environment.kind; refreshFrontierBase();
   } preview(); } }));
   rootVariables(); refreshers.forEach(refresh => refresh()); container.append(panel);
   let destroyed = false;

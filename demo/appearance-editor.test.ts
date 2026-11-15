@@ -160,3 +160,35 @@ it('synchronises the active frontier base, preserves drafts and refreshes on env
   expect(container.querySelector('[data-preview="Effective color"]')!.textContent).toBe(frontierColor('#ABCDEF' as typeof defaultAppearance.render.palette.frontier, 1.5));
   container.querySelector('button')!.click(); expect(hex('Frontier base color')).toBe(defaultAppearance.render.palette.frontier);
 });
+
+it('preserves unrelated color and alpha drafts when switching environments until explicitly reset', () => {
+  const frontierDraft = edit('Frontier base color', 'text', '#12');
+  const colorDraft = edit('Wall-maze path', 'text', '#34');
+  const alphaDraft = edit('visited overlay', 'number', '101');
+  const drafts = [colorDraft, alphaDraft];
+  const errorFor = (node: HTMLInputElement) => container.querySelector('#' + node.getAttribute('aria-describedby'))!;
+  const errors = drafts.map(node => errorFor(node).textContent);
+  const live = container.querySelector('[aria-live]')!;
+  const message = live.textContent;
+
+  for (const environment of ['wall-maze', 'terrain'] as const) {
+    handle.generate({ environment });
+    expect(colorDraft.value).toBe('#34');
+    expect(alphaDraft.value).toBe('101');
+    drafts.forEach((node, i) => {
+      expect(node.getAttribute('aria-invalid')).toBe('true');
+      expect(errorFor(node).textContent).toBe(errors[i]);
+    });
+    expect(live.textContent).toBe(message);
+    expect(frontierDraft.value).toBe(environment === 'wall-maze'
+      ? defaultAppearance.render.palette.frontier : defaultAppearance.render.palette.terrainMarkers.frontier);
+    expect(frontierDraft.hasAttribute('aria-invalid')).toBe(false);
+  }
+
+  container.querySelector('button')!.click();
+  expect(colorDraft.value).toBe(defaultAppearance.render.palette.path);
+  expect(alphaDraft.value).toBe('16');
+  expect(container.querySelector('[aria-invalid=true]')).toBeNull();
+  drafts.forEach(node => expect(errorFor(node).textContent).toBe(''));
+  expect(live.textContent).toBe('');
+});
