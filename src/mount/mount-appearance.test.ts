@@ -94,7 +94,7 @@ it('preserves exact controller snapshots and custom draws through lifecycle chan
       const before = controller.getSnapshot();
       const events = eventCount, frames = globals.frameRequests, pending = globals.pendingFrames.size;
       rectColors.length = 0; circleColors.length = 0;
-      expect(handle.setAppearance({ render: { palette: { background: '#020304', terrain: { 1: '#445566' }, terrainPip: '#556677' } } }).ok).toBe(true);
+      expect(handle.setAppearance({ render: { palette: { background: '#020304', terrain: { 1: '#445566' }, terrainPip: '#556677', visitedOverlay: { rgb: '#123456', alpha: 0.37 } } } }).ok).toBe(true);
       const after = controller.getSnapshot();
       expect(after).toEqual(before);
       expect(after.generation).toBe(before.generation);
@@ -111,9 +111,13 @@ it('preserves exact controller snapshots and custom draws through lifecycle chan
       }
     }
     handle.solve(); editAndCheck();
-    rectColors.length = 0; globals.frame(0); globals.frame(20);
+    rectColors.length = 0; globals.frame(0); globals.frame(200);
     expect(rectColors).toContain('#020304'); handle.pause();
-    expect(controller.getSnapshot().playback.kind).toBe('paused'); editAndCheck();
+    expect(controller.getSnapshot().playback.kind).toBe('paused');
+    // Ensure this assertion exercises an explored cell, rather than only a redraw.
+    expect(controller.getSnapshot().traceState.visited.size).toBeGreaterThan(0);
+    editAndCheck();
+    expect(rectColors).toContain('rgba(18, 52, 86, 0.37)');
     globals.intersect(false); editAndCheck(); globals.intersect(true);
     globals.motion(true); handle.solve();
     expect(controller.getSnapshot().playback.kind).toBe('finished'); editAndCheck();
