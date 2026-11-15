@@ -17,3 +17,12 @@ it('preserves every legacy default and freezes every nested object', () => {
   }
   frozen(appearance);
 });
+
+import type { RenderPalette } from './appearance.js';
+import { normaliseHex } from './merge-appearance.js';
+it('accepts a RenderPalette with a validated non-default color', () => {
+  const walls = normaliseHex('#123456');
+  if (!walls.ok) throw new Error('fixture');
+  const custom: RenderPalette = { ...appearance.palette, walls: walls.value };
+  expect(custom.walls).toBe('#123456');
+});
