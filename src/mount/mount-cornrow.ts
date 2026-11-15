@@ -4,7 +4,9 @@ import { defaultAppearance, mergeAppearance, uiVariables, type AppearancePatch }
 import { createController, type ControllerListener, type CornrowController } from '../controller/controller.js';
 import { createAnimationFrameScheduler, type FrameScheduler } from '../controller/frame-scheduler.js';
 import { generateEnvironment } from '../generate/environment.js';
-import type { SolverId } from '../model/wall-maze.js';
+import type { EditError } from '../edit/edit-environment.js';
+import { createClickEditing } from './click-editing.js';
+import type { CellCoord, SolverId } from '../model/wall-maze.js';
 import { createCanvasSurface } from '../render/canvas-surface.js';
 import { drawMaze } from '../render/draw-maze.js';
 import { selectViewModel } from '../render/select-view-model.js';
@@ -22,7 +24,16 @@ import { trackReducedMotion } from './reduced-motion.js';
 import { describeOutcome } from './status-text.js';
 import { mountStyles } from './styles.js';
 
+export interface MountEditUnavailable {
+  readonly kind: 'destroyed' | 'background-mode';
+  readonly operation: 'addObstacles' | 'removeObstacles' | 'setGoal';
+  readonly detail: string;
+}
 export interface CornrowHandle {
+  addObstacles(cell: CellCoord): Result<void, EditError | MountEditUnavailable>;
+  removeObstacles(cell: CellCoord): Result<void, EditError | MountEditUnavailable>;
+  setGoal(cell: CellCoord): Result<void, EditError | MountEditUnavailable>;
+  setEditRadius(radius: number): void;
   setAppearance(patch: AppearancePatch): Result<void, AppearanceError>;
   generate(options?: MountOptions): void;
   solve(solverId?: SolverId): void;
@@ -96,14 +107,19 @@ export function mountCornrow(element: HTMLElement, initialOptions: MountOptions 
     const solver = getSolver(id ?? options.solver);
     return solver.ok ? solver.value.label : 'Breadth-first search';
   }
+  let editing: ReturnType<typeof createClickEditing> | null = null;
+  let lastKind: string | null = null;
   function updateText(): void {
     if (controller === null) return;
     const snapshot = controller.getSnapshot();
     if (legend) legend.element.hidden = snapshot.generation.environment.kind !== 'terrain';
-    const { rows, cols } = snapshot.generation.environment;
+    const { rows, cols, kind } = snapshot.generation.environment;
+    if (kind !== lastKind) { controls?.setEnvironmentKind(kind); lastKind = kind; }
+    if (snapshot.playback.kind !== 'idle') editing?.clear();
     const label = solverLabel();
-    canvas.setAttribute('aria-label', `${options.label}: ${rows} × ${cols} maze, seed ${snapshot.generation.seed}, ${label}`);
-    const text = describeOutcome(snapshot.playback, label, snapshot.generation.environment.kind);
+    canvas.setAttribute('aria-label', `${options.label}: ${rows} × ${cols} maze, ${snapshot.edited ? 'edited from seed' : 'seed'} ${snapshot.generation.seed}, ${label}`);
+    const outcome = describeOutcome(snapshot.playback, label, snapshot.generation.environment.kind);
+    const text = editing?.announcement ? `${editing.announcement}. ${outcome}` : outcome;
     if (status && status.textContent !== text) status.textContent = text;
     controls?.update(snapshot.playback, reduced);
     if (surface === null) fallback.update(snapshot, label);
@@ -131,6 +147,8 @@ export function mountCornrow(element: HTMLElement, initialOptions: MountOptions 
     initialOptions: { kind: options.environment, seed: options.seed, rows: options.rows, cols: options.cols, openness: options.openness },
   });
   const playback = controller;
+  editing = controls ? createClickEditing({ canvas, surface, controller: playback, disposables, controls,
+    getOptions: () => options, onEdited: () => { runningIntent = false; } }) : null;
   disposables.add(() => playback.dispose());
   playback.setSpeed(options.stepsPerSecond);
 
@@ -158,13 +176,27 @@ export function mountCornrow(element: HTMLElement, initialOptions: MountOptions 
 
   function syncFields(): void {
     if (!controls) return;
+    controls.area.value = String(options.editRadius);
     controls.seed.value = String(options.seed);
     controls.setSize(options.rows, options.cols);
     controls.algorithm.value = options.solver;
     controls.environment.value = options.environment;
     controls.speed.value = String(options.stepsPerSecond);
   }
+  function edit(operation: MountEditUnavailable['operation'], tool: 'add' | 'remove' | 'goal', cell: CellCoord): Result<void, EditError | MountEditUnavailable> {
+    if (destroyed) return err({ kind: 'destroyed', operation, detail: 'The Cornrow handle has been destroyed.' });
+    if (!editing) return err({ kind: 'background-mode', operation, detail: 'Edits are unavailable in background mode because its loop regenerates.' });
+    return editing.applyEdit(tool, cell);
+  }
   const handle: CornrowHandle = {
+    addObstacles: cell => edit('addObstacles', 'add', cell),
+    removeObstacles: cell => edit('removeObstacles', 'remove', cell),
+    setGoal: cell => edit('setGoal', 'goal', cell),
+    setEditRadius(radius) {
+      if (destroyed) return;
+      options = normaliseMountOptions({ ...options, editRadius: radius }, options.seed);
+      if (controls) controls.area.value = String(options.editRadius);
+    },
     setAppearance(patch) {
       if (destroyed) return err({ kind: 'destroyed', operation: 'setAppearance', detail: 'The Cornrow handle has been destroyed.' });
       const result = mergeAppearance(appearance, patch);
@@ -177,6 +209,7 @@ export function mountCornrow(element: HTMLElement, initialOptions: MountOptions 
     },
     generate(next = {}) {
       if (destroyed) return;
+      editing?.clear();
       runningIntent = background;
       loop?.restart();
       options = normaliseMountOptions({ ...options, ...next, mode: options.mode, seed: next.seed ?? randomSeed() }, options.seed);
@@ -215,6 +248,7 @@ export function mountCornrow(element: HTMLElement, initialOptions: MountOptions 
     reconcilePlayback();
   }
   if (controls) {
+    for (const event of ['input', 'change']) disposables.listen(controls.area, event, () => handle.setEditRadius(controls.area.valueAsNumber));
     disposables.listen(controls.generate, 'click', () => handle.generate());
     disposables.listen(controls.solve, 'click', () => handle.solve());
     disposables.listen(controls.pause, 'click', () => playback.getSnapshot().playback.kind === 'paused' ? handle.resume() : handle.pause());

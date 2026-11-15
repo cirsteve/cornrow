@@ -85,7 +85,7 @@ export type {
   ControllerListener, MazeGeneration,
 } from './controller/controller.js';
 export { mountCornrow } from './mount/mount-cornrow.js';
-export type { CornrowHandle } from './mount/mount-cornrow.js';
+export type { CornrowHandle, MountEditUnavailable } from './mount/mount-cornrow.js';
 export type { MountOptions } from './mount/options.js';
 
 export { TERRAIN_COSTS, buildTerrainMaze } from './model/terrain-maze.js';
