@@ -1,6 +1,6 @@
 import { defaultAppearance, mergeAppearance, frontierColor, type AppearancePatch, type CornrowHandle } from '../src/index';
-import { appearanceFields, pageDefaults, cssVariable } from './appearance-fields';
-import { parseHexDraft, parsePercent, formatAlpha, colorValue, colorPatch, alphaPatch, shapePatch, saturationPatch, baseFrontier } from './appearance-drafts';
+import { appearanceFields, pageDefaults, cssVariable, type TokenPath } from './appearance-fields';
+import { parseHexDraft, parsePercent, formatAlpha, colorValue, colorPatch, alphaPatch, shapePatch, saturationPatch, baseFrontier, frontierBasePath } from './appearance-drafts';
 
 let nextEditor = 0;
 interface EditorOptions { container: HTMLElement; handle: CornrowHandle; initialEnvironment: 'terrain' | 'wall-maze' }
@@ -11,7 +11,7 @@ export function createAppearanceEditor({ container, handle, initialEnvironment }
   panel.className = 'appearance-panel';
   const heading = document.createElement('h2'); heading.textContent = 'Appearance'; panel.append(heading);
   const disposers: (() => void)[] = [];
-  const refreshers: (() => void)[] = [];
+  const refreshers: ((source?: HTMLInputElement) => void)[] = [];
   let appearance = defaultAppearance;
   let pages: Record<keyof typeof pageDefaults, string> = { ...pageDefaults };
   let environment = initialEnvironment;
@@ -38,35 +38,40 @@ export function createAppearanceEditor({ container, handle, initialEnvironment }
     if (!applied.ok) { announce(null, applied.error.detail); return false; }
     appearance = merged.value; return true;
   }
-  for (const [index, field] of appearanceFields.entries()) {
-    const row = element('div', groups[field.group]); row.className = 'appearance-row';
-    const label = element('label', row, field.label);
-    const picker = element('input', row); picker.type = 'color'; picker.id = `${prefix}-${index}`;
+  function colorRow(parent: HTMLElement, labelText: string, id: string, pathFor: () => TokenPath) {
+    const row = element('div', parent); row.className = 'appearance-row';
+    const label = element('label', row, labelText);
+    const picker = element('input', row); picker.type = 'color'; picker.id = id;
     label.htmlFor = picker.id;
-    const text = element('input', row); text.type = 'text'; text.setAttribute('aria-label', field.label + ' hex'); text.spellcheck = false;
+    const text = element('input', row); text.type = 'text'; text.setAttribute('aria-label', labelText + ' hex'); text.spellcheck = false;
     const swatch = element('span', row); swatch.className = 'appearance-swatch'; swatch.setAttribute('aria-hidden', 'true');
     const error = element('span', row); error.id = picker.id + '-error'; error.className = 'appearance-error';
     text.setAttribute('aria-describedby', error.id);
     function invalid(detail: string) { text.setAttribute('aria-invalid', 'true'); error.textContent = detail; announce(text, detail); }
     function clear() { text.removeAttribute('aria-invalid'); error.textContent = ''; settle(text); }
-    function refresh() {
-      const value = colorValue(appearance, field.path, pages);
-      picker.value = value; text.value = value; swatch.style.backgroundColor = value; clear();
+    function refresh(source?: HTMLInputElement) {
+      const value = colorValue(appearance, pathFor(), pages);
+      picker.value = value; swatch.style.backgroundColor = value;
+      // Preserve unrelated invalid drafts until corrected, or explicitly reset.
+      if (source && source !== text && text.hasAttribute('aria-invalid')) return;
+      if (source !== text) text.value = value;
+      clear();
     }
     function commit(value: string) {
       const parsed = parseHexDraft(value);
       if (!parsed.ok) { invalid(parsed.error.detail); return; }
-      const patch = colorPatch(appearance, field.path, parsed.value);
+      const path = pathFor();
+      const patch = colorPatch(appearance, path, parsed.value);
       if (patch && !apply(patch)) return;
-      if (field.path.kind === 'page') pages[field.path.key] = parsed.value;
-      if (field.path.kind === 'page' || field.path.kind === 'ui') root.style.setProperty(cssVariable(field.path.key), parsed.value);
-      picker.value = parsed.value; swatch.style.backgroundColor = parsed.value; clear(); preview();
+      if (path.kind === 'page') pages[path.key] = parsed.value;
+      if (path.kind === 'page' || path.kind === 'ui') root.style.setProperty(cssVariable(path.key), parsed.value);
+      clear(); refreshers.forEach(refresh => refresh(text)); preview();
     }
     listen(picker, 'input', () => { text.value = picker.value.toUpperCase(); commit(text.value); });
     listen(text, 'input', () => commit(text.value));
-    if (field.path.kind === 'overlay') {
-      const path = field.path;
-      const alphaLabel = element('label', row, field.label + ' alpha (%)');
+    const path = pathFor();
+    if (path.kind === 'overlay') {
+      const alphaLabel = element('label', row, labelText + ' alpha (%)');
       const alpha = element('input', row); alpha.type = 'number'; alpha.min = '0'; alpha.max = '100'; alpha.step = 'any';
       alpha.id = picker.id + '-alpha'; alphaLabel.htmlFor = alpha.id;
       const alphaError = element('span', row); alphaError.id = alpha.id + '-error'; alphaError.className = 'appearance-error';
@@ -79,11 +84,15 @@ export function createAppearanceEditor({ container, handle, initialEnvironment }
         }
         if (apply(alphaPatch(appearance, path, parsed.value))) clearAlpha();
       });
-      refreshers.push(() => { alpha.value = formatAlpha(appearance.render.palette[path.key].alpha); clearAlpha(); });
+      refreshers.push(source => { if (source && alpha.hasAttribute('aria-invalid')) return; alpha.value = formatAlpha(appearance.render.palette[path.key].alpha); clearAlpha(); });
     }
     refreshers.push(refresh);
   }
+  for (const [index, field] of appearanceFields.entries()) {
+    colorRow(groups[field.group], field.label, `${prefix}-${index}`, () => field.path);
+  }
   const frontier = fieldset('Frontier');
+  colorRow(frontier, 'Frontier base color', `${prefix}-frontier-base`, () => frontierBasePath(environment));
   const radios = (['square', 'circle'] as const).map(shape => {
     const label = element('label', frontier, shape === 'square' ? 'Square' : 'Circle');
     const radio = element('input', label); radio.type = 'radio'; radio.name = prefix + '-shape'; radio.value = shape;
@@ -121,7 +130,9 @@ export function createAppearanceEditor({ container, handle, initialEnvironment }
     if (!apply(defaultAppearance)) return;
     pages = { ...pageDefaults }; rootVariables(); refreshers.forEach(refresh => refresh()); announce(null, '');
   });
-  disposers.push(handle.on(event => { if (event.type === 'generated') { environment = event.generation.environment.kind; preview(); } }));
+  disposers.push(handle.on(event => { if (event.type === 'generated') { if (environment !== event.generation.environment.kind) {
+    environment = event.generation.environment.kind; refreshers.forEach(refresh => refresh());
+  } preview(); } }));
   rootVariables(); refreshers.forEach(refresh => refresh()); container.append(panel);
   let destroyed = false;
   return { destroy() {

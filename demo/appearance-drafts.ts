@@ -32,4 +32,10 @@ export function alphaPatch(a: CornrowAppearance, path: Extract<TokenPath, { kind
 }
 export const shapePatch = (shape: RenderAppearance['frontier']['shape']): AppearancePatch => ({ render: { frontier: { shape } } });
 export const saturationPatch = (percent: number): AppearancePatch => ({ render: { frontier: { saturationScale: percent / 100 } } });
-export const baseFrontier = (a: CornrowAppearance, environment: 'terrain' | 'wall-maze') => environment === 'terrain' ? a.render.palette.terrainMarkers.frontier : a.render.palette.frontier;
+export function frontierBasePath(environment: 'terrain' | 'wall-maze'): Extract<TokenPath, { kind: 'marker' | 'palette' }> {
+  return environment === 'terrain' ? { kind: 'marker', key: 'frontier' } : { kind: 'palette', key: 'frontier' };
+}
+export function baseFrontier(a: CornrowAppearance, environment: 'terrain' | 'wall-maze') {
+  const path = frontierBasePath(environment);
+  return path.kind === 'marker' ? a.render.palette.terrainMarkers[path.key] : a.render.palette[path.key];
+}
