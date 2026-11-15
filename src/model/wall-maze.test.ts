@@ -35,12 +35,12 @@ describe('wall-maze model', () => {
   });
 
   it('clamps every builder dimension and sets default endpoints', () => {
-    expect([-10, 4, 5, 5.6, 80, 100, NaN, -Infinity, Infinity].map(clampGridSize))
-      .toEqual([5, 5, 5, 6, 80, 80, 5, 5, 80]);
-    const result = buildWallMaze({ rows: 2, cols: 100, passages: [] });
+    expect([-10, 4, 5, 5.6, 80, 100, 200, 250, NaN, -Infinity, Infinity].map(clampGridSize))
+      .toEqual([5, 5, 5, 6, 80, 100, 200, 200, 5, 5, 200]);
+    const result = buildWallMaze({ rows: 2, cols: 250, passages: [] });
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect([result.value.rows, result.value.cols, result.value.start, result.value.goal]).toEqual([5, 80, 0, 399]);
+    expect([result.value.rows, result.value.cols, result.value.start, result.value.goal]).toEqual([5, 200, 0, 999]);
   });
 
   it('returns contextual errors for invalid pairs and endpoints', () => {

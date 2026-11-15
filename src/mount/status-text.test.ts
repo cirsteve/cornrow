@@ -23,8 +23,8 @@ it('describes idle, running and paused playback', () => {
 it('normalises options purely with injected seed entropy and bounded dimensions/speed', () => {
   expect(normaliseMountOptions({}, 'fresh')).toEqual({ mode: 'interactive', environment: 'wall-maze', openness: 0.5, editRadius: 1, seed: 'fresh', rows: 20, cols: 20, solver: 'bfs', stepsPerSecond: 60, label: 'Cornrow maze' });
   expect(normaliseMountOptions({ rows: NaN, cols: Infinity, solver: 'unknown' as SolverId, stepsPerSecond: -5, seed: '' }, 'unused'))
-    .toMatchObject({ rows: 5, cols: 80, solver: 'bfs', stepsPerSecond: 1, seed: '' });
-  expect(normaliseMountOptions({ rows: 3, cols: 100, stepsPerSecond: NaN }, 'seed')).toMatchObject({ rows: 5, cols: 80, stepsPerSecond: 60 });
+    .toMatchObject({ rows: 5, cols: 200, solver: 'bfs', stepsPerSecond: 1, seed: '' });
+  expect(normaliseMountOptions({ rows: 3, cols: 250, stepsPerSecond: NaN }, 'seed')).toMatchObject({ rows: 5, cols: 200, stepsPerSecond: 60 });
   expect(normaliseMountOptions({ stepsPerSecond: 900 }, 'seed').stepsPerSecond).toBe(500);
   expect(normaliseMountOptions({ seed: 42 }, 'unused').seed).toBe('42');
   expect(normaliseMountOptions({}, 42).seed).toBe('42');
@@ -60,5 +60,12 @@ it.each([
   ['goal', 'wall-maze', 'Goal moved to row 3, column 7'],
   ['goal', 'terrain', 'Goal moved to row 3, column 7'],
 ] as const)('describes %s in %s', (tool, kind, expected) => {
-  expect(describeEdit({ tool, kind, cell: { row: 2, col: 6 } })).toBe(expected);
+  expect(describeEdit({ tool, kind, cell: { row: 2, col: 6 }, continuing: false })).toBe(expected);
+  expect(describeEdit({ tool, kind, cell: { row: 2, col: 6 }, continuing: true })).toBe(`${expected}; search continuing`);
+});
+
+it('describes continuing running and paused searches explicitly', () => {
+  expect(describeOutcome({ kind: 'idle' }, 'BFS', 'wall-maze', true)).toBe('Ready to solve with BFS');
+  expect(describeOutcome({ kind: 'running', solverLabel: 'A*' }, 'BFS', 'wall-maze', true)).toBe('Continuing search with A*');
+  expect(describeOutcome({ kind: 'paused', solverLabel: 'A*' }, 'BFS', 'wall-maze', true)).toBe('Paused continuing search with A*');
 });

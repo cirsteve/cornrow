@@ -86,7 +86,7 @@ describe('mounted controls and lifecycle', () => {
     expect(Array.from(root.querySelectorAll('button,input,select')).map(element => element.tagName === 'BUTTON' ? element.textContent : element.closest('label')?.textContent?.split('10 ×')[0])).toEqual([
       'Generate', 'Solve', 'Pause', 'Reset', 'Speed', 'Size', 'AlgorithmBreadth-first searchDijkstraA* (Manhattan)', 'EnvironmentMazeTerrain', 'Seed', 'ClickNoneAdd wallsRemove wallsMove goal', 'Area', 'Step',
     ]);
-    expect(Array.from(query<HTMLSelectElement>('select').options).map(option => option.value)).toEqual(['10', '20', '30', '40', '60', '80']);
+    expect(Array.from(query<HTMLSelectElement>('select').options).map(option => option.value)).toEqual(['10', '20', '30', '40', '60', '80', '100', '150', '200']);
     expect(button('Pause').disabled).toBe(true);
     expect(button('Step').hidden).toBe(true);
     expect(root.querySelector('style')?.textContent).toContain('flex-wrap: wrap');
@@ -191,16 +191,16 @@ describe('mounted controls and lifecycle', () => {
     expect(size.selectedOptions[0]?.textContent).toBe(`${rows} × ${cols} (current)`);
     expect(size.selectedOptions[0]?.disabled).toBe(true);
     expect(Array.from(size.options).filter(option => !option.disabled).map(option => option.value))
-      .toEqual(['10', '20', '30', '40', '60', '80']);
+      .toEqual(['10', '20', '30', '40', '60', '80', '100', '150', '200']);
     handle.generate({ rows: 17, cols: 23, seed: 'custom-size' });
     expect(size.selectedOptions[0]?.textContent).toBe('17 × 23 (current)');
-    expect(size.options).toHaveLength(7);
+    expect(size.options).toHaveLength(10);
     query('form').dispatchEvent(new Event('submit', { cancelable: true }));
     expect(size.selectedOptions[0]?.textContent).toBe('17 × 23 (current)');
     const events: ControllerEvent[] = []; handle.on(event => events.push(event));
     size.value = '20'; size.dispatchEvent(new Event('change'));
     expect(size.selectedOptions[0]?.textContent).toBe('20 × 20');
-    expect(size.options).toHaveLength(6);
+    expect(size.options).toHaveLength(9);
     expect(events.filter(event => event.type === 'generated').at(-1)?.generation)
       .toMatchObject({ seed: 'custom-size', environment: { rows: 20, cols: 20 } });
   });
@@ -219,7 +219,7 @@ describe('mounted controls and lifecycle', () => {
     expect(events.find(event => event.type === 'solve-started')).toMatchObject({ solverId: 'astar', solverLabel: 'A* (Manhattan)' });
     expect(query('canvas').getAttribute('aria-label')).toContain('A* (Manhattan)');
     handle.generate({ rows: -100, cols: Infinity, solver: 'missing' as SolverId, label: 'Guest maze' });
-    expect(query('canvas').getAttribute('aria-label')).toContain('Guest maze: 5 × 80');
+    expect(query('canvas').getAttribute('aria-label')).toContain('Guest maze: 5 × 200');
     handle.solve('missing' as SolverId);
     expect(events.filter(event => event.type === 'solve-started').at(-1)?.solverId).toBe('bfs');
   });
@@ -304,5 +304,28 @@ it('mounts terrain, switches native environments on the field seed, and balances
     handle.solve();
     handle.destroy(); globals.assertBalanced(host);
     expect(host.outerHTML).toBe(original);
+  } finally { handle.destroy(); globals.restore(); }
+});
+
+it('retains the historical Replay view through resize and appearance redraws', () => {
+  const globals = instrumentGlobals({ reducedMotion: true });
+  const host = document.createElement('div');
+  const handle = mountCornrow(host, { seed: 'cornrow', rows: 10, cols: 10 });
+  try {
+    handle.setGoal({ row: 0, col: 1 }); handle.solve();
+    handle.setGoal({ row: 9, col: 9 });
+    const root = host.firstElementChild?.shadowRoot;
+    const step = Array.from(root?.querySelectorAll('button') ?? []).find(button => button.textContent === 'Step');
+    if (!step) throw new Error('Missing Step');
+    step.click(); // Replay pauses before the first edit entry.
+    const before = globals.context.fillRect.mock.calls.map(call => [...call]);
+    globals.context.fillRect.mockClear();
+    globals.resize();
+    const resized = globals.context.fillRect.mock.calls.map(call => [...call]);
+    globals.context.fillRect.mockClear();
+    handle.setAppearance({});
+    expect(globals.context.fillRect.mock.calls).toEqual(resized);
+    expect(before.slice(-resized.length)).toEqual(resized);
+    handle.destroy(); globals.assertBalanced(host);
   } finally { handle.destroy(); globals.restore(); }
 });

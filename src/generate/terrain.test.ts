@@ -58,7 +58,7 @@ it('clamps openness and dimensions and normalizes numeric seeds before stream de
   expect(braidedTerrain({ ...sample, openness: -1 })).toEqual(braidedTerrain({ ...sample, openness: 0 }));
   expect(braidedTerrain({ ...sample, openness: 2 })).toEqual(braidedTerrain({ ...sample, openness: 1 }));
   expect(braidedTerrain({ ...sample, seed: 2 ** 32 + 5 })).toEqual(braidedTerrain({ ...sample, seed: 5 }));
-  expect(braidedTerrain({ seed: 5, rows: 3, cols: 90 }).options).toEqual({ seed: 5, rows: 5, cols: 80, openness: 0.5 });
+  expect(braidedTerrain({ seed: 5, rows: 3, cols: 250 }).options).toEqual({ seed: 5, rows: 5, cols: 200, openness: 0.5 });
 });
 
 it('pins cornrow 10x10 terrain topology and costs (version 1, openness 0.5)', () => {

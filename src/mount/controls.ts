@@ -23,7 +23,7 @@ export function createControls(document: Document, options: NormalisedMountOptio
   const speed = labelled('Speed', document.createElement('input'));
   speed.type = 'range'; speed.min = '1'; speed.max = '500'; speed.step = '1'; speed.value = String(options.stepsPerSecond);
   const size = labelled('Size', document.createElement('select'));
-  const sizePresets = [10, 20, 30, 40, 60, 80];
+  const sizePresets = [10, 20, 30, 40, 60, 80, 100, 150, 200];
   for (const value of sizePresets) {
     const option = document.createElement('option'); option.value = String(value); option.textContent = `${value} × ${value}`;
     size.append(option);
