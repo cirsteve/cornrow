@@ -524,3 +524,53 @@ it('keeps a cancelled playback when a listener edits after abandonment', () => {
   controller.generate();
   expect(controller.getSnapshot()).toMatchObject({ edited: true, playback: { kind: 'finished', outcome: 'cancelled' }, generation: { environment: changed.value } });
 });
+
+it.each(['solve', 'reset', 'dispose'] as const)('stops an edit when its step listener calls %s', replacement => {
+  const { controller, events, onRender } = setup();
+  controller.runToEnd();
+  const environment = controller.getSnapshot().generation.environment;
+  let replacementSnapshot = controller.getSnapshot();
+  let renders = 0;
+  const stop = controller.on(event => {
+    if (event.type !== 'step' || event.event.type !== 'edit') return;
+    controller[replacement]();
+    replacementSnapshot = controller.getSnapshot();
+    renders = onRender.mock.calls.length;
+  });
+  events.length = 0;
+  controller.edit(environment); // A completed session emits edit followed by path.
+  stop();
+  expect(controller.getSnapshot()).toEqual(replacementSnapshot);
+  expect(onRender.mock.calls.length).toBe(renders);
+  expect(events.filter(event => event.type === 'step')).toHaveLength(1);
+  expect(events.some(event => event.type === 'edited')).toBe(false);
+  controller.dispose();
+});
+
+it.each(['running', 'paused'] as const)('restores live search after a %s Replay edit while preserving intent', kind => {
+  const { controller, scheduler } = setup(bfs, options => ({ ...recursiveBacktracker(options), environment: comparisonMaze }));
+  const near = setGoal(comparisonMaze, { row: 0, col: 1 });
+  if (!near.ok) throw new Error('goal');
+  controller.edit(near.value); controller.runToEnd();
+  const live = controller.getSnapshot().traceState;
+  controller.replay(); scheduler.frame(0); scheduler.frame(20);
+  if (kind === 'paused') controller.pause();
+  controller.edit(comparisonMaze);
+  expect(controller.getSnapshot().playback.kind).toBe(kind);
+  expect(controller.getSnapshot().traceState.visited).toEqual(live.visited);
+  expect(scheduler.callbacks.size).toBe(kind === 'running' ? 1 : 0);
+  controller.runToEnd();
+  expect(controller.getSnapshot().traceState.path?.at(-1)).toBe(comparisonMaze.goal);
+});
+
+it('keeps a paused Replay edit paused even when its goal is already explored', () => {
+  const { controller, scheduler } = setup();
+  controller.runToEnd();
+  const environment = controller.getSnapshot().generation.environment;
+  controller.replay(); controller.pause();
+  controller.edit(environment);
+  expect(controller.getSnapshot().playback.kind).toBe('paused');
+  expect(scheduler.callbacks.size).toBe(0);
+  controller.step();
+  expect(controller.getSnapshot().playback).toMatchObject({ kind: 'finished', outcome: 'found' });
+});

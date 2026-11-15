@@ -76,7 +76,7 @@ export function createController({ generator, solvers, scheduler, onRender, init
   let frameVersion = 0;
   let disposed = false;
   let edited = false;
-  // Bumped by generate() and edit() so a call can tell that a listener replaced it mid-way.
+  // Bumped when an operation replaces playback so listener-triggered replacements win.
   let operation = 0;
   const listeners = new Set<ControllerListener>();
   const active = (): boolean => playback.kind === 'running' || playback.kind === 'paused';
@@ -144,6 +144,7 @@ export function createController({ generator, solvers, scheduler, onRender, init
   function begin(kind: 'running' | 'paused', solverId?: SolverId): void {
     const descriptor = solverId === undefined ? selected : solvers.find(entry => entry.id === solverId);
     if (descriptor === undefined || descriptor === null) throw new RangeError('Unknown or missing solver');
+    ++operation;
     abandon();
     selected = descriptor;
     traceState = initialTraceState;
@@ -181,6 +182,7 @@ export function createController({ generator, solvers, scheduler, onRender, init
       if (disposed) return;
       const current = ++operation;
       const wasReplay = replayIndex !== null;
+      const wasPaused = playback.kind === 'paused';
       if (wasReplay) {
         cancelFrame();
         replayIndex = null;
@@ -197,7 +199,12 @@ export function createController({ generator, solvers, scheduler, onRender, init
           emit({ type: 'step', event, traceState });
           if (operation !== current) return;
         }
-        if (wasReplay || playback.kind === 'finished') {
+        if (wasReplay && wasPaused) {
+          // Restore the live session without overriding the user's paused Replay intent.
+          result = null;
+          carryMs = 0;
+          previousMs = null;
+        } else if (wasReplay || playback.kind === 'finished') {
           carryMs = 0;
           previousMs = null;
           if (applied.hasMoreToSearch) {
@@ -238,6 +245,7 @@ export function createController({ generator, solvers, scheduler, onRender, init
     },
     reset() {
       if (disposed) return;
+      ++operation;
       abandon();
       traceState = initialTraceState;
       log = []; result = null; carryMs = 0;
@@ -278,6 +286,7 @@ export function createController({ generator, solvers, scheduler, onRender, init
     dispose() {
       if (disposed) return;
       disposed = true;
+      ++operation;
       abandon(); listeners.clear();
     },
   };
