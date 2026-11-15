@@ -16,12 +16,16 @@ interface ClickEditingDependencies {
   disposables: Disposables;
   controls: ReturnType<typeof createControls>;
   getOptions: () => NormalisedMountOptions;
-  onEdited: () => void;
+  beforeEdit: () => void;
+  afterEdit: () => void;
 }
 
-export function createClickEditing({ canvas, surface, controller, disposables, controls, getOptions, onEdited }: ClickEditingDependencies) {
+export function createClickEditing({ canvas, surface, controller, disposables, controls, getOptions, beforeEdit, afterEdit }: ClickEditingDependencies) {
   let tool: EditTool = 'none';
-  let announcement: string | null = null;
+  let continuing = false;
+  // Bumped by clear() and by each edit, so an edit replaced by a listener's reset/solve/generate/edit does not restore its announcement.
+  let revision = 0;
+  let announcement: Omit<Parameters<typeof describeEdit>[0], 'continuing'> | null = null;
   disposables.listen(controls.click, 'change', () => {
     if (isEditTool(controls.click.value)) tool = controls.click.value;
   });
@@ -31,9 +35,15 @@ export function createClickEditing({ canvas, surface, controller, disposables, c
       : selected === 'add' ? addObstacles(env, cell, getOptions().editRadius)
       : removeObstacles(env, cell, getOptions().editRadius);
     if (!result.ok) return result;
-    onEdited();
-    announcement = describeEdit({ tool: selected, kind: env.kind, cell });
+    const editRevision = ++revision;
+    beforeEdit();
     controller.edit(result.value);
+    const snapshot = controller.getSnapshot();
+    if (revision !== editRevision || snapshot.generation.environment !== result.value) return ok(undefined);
+    const playback = snapshot.playback;
+    continuing = playback.kind === 'running' || playback.kind === 'paused';
+    announcement = { tool: selected, kind: env.kind, cell };
+    afterEdit();
     return ok(undefined);
   }
   if (surface !== null) disposables.listen(canvas, 'click', event => {
@@ -50,5 +60,11 @@ export function createClickEditing({ canvas, surface, controller, disposables, c
     });
     if (cell !== null) applyEdit(tool, cell);
   });
-  return { applyEdit, get announcement() { return announcement; }, clear() { announcement = null; } };
+  return {
+    applyEdit,
+    get announcement() { return announcement === null ? null : describeEdit({ ...announcement, continuing }); },
+    get continuing() { return continuing; },
+    finish() { continuing = false; },
+    clear() { revision += 1; announcement = null; continuing = false; },
+  };
 }

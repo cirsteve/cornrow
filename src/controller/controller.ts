@@ -1,11 +1,11 @@
 import type { GenerationResult, EnvironmentOptions } from '../generate/contract.js';
-import type { SolverId } from '../model/wall-maze.js';
+import { toNodeId, type SolverId } from '../model/wall-maze.js';
 import type { Environment } from '../model/environment.js';
 import { mergeEnvironmentOptions } from './merge-environment-options.js';
 import { selectViewModel } from '../render/select-view-model.js';
 import type { MazeViewModel } from '../render/view-model.js';
-import { cancelledResult, type SolveResult, type SolverDescriptor, type TraceEvent } from '../search/contract.js';
-import { applyTraceEvent, initialTraceState, type TraceState } from '../trace/trace-state.js';
+import { cancelledResult, type ResumableSearch, type SolveResult, type SolverDescriptor, type TraceEvent } from '../search/contract.js';
+import { applyTraceEvent, initialTraceState, selectTraceEnvironment, type TraceState } from '../trace/trace-state.js';
 import { advanceAccumulator } from './accumulator.js';
 import type { FrameHandle, FrameScheduler } from './frame-scheduler.js';
 import { finishPlayback, pausePlayback, resumePlayback, type PlaybackState } from './playback-state.js';
@@ -40,6 +40,10 @@ export interface ControllerSnapshot {
  * solve/step/runToEnd throw RangeError if no registered solver is available when starting.
  */
 export interface CornrowController {
+  /**
+   * @throws RangeError while a search session exists if the environment's dimensions differ
+   * from the current generation or its goal is outside the grid, before changing any state.
+   */
   edit(environment: Environment): void;
   generate(options?: Partial<EnvironmentOptions>): void;
   /** @throws RangeError for an unknown/missing solver, before changing playback. */
@@ -64,7 +68,8 @@ export function createController({ generator, solvers, scheduler, onRender, init
   let traceState = initialTraceState;
   let playback: PlaybackState = { kind: 'idle' };
   let selected = solvers[0] ?? null;
-  let iterator: Generator<TraceEvent, SolveResult> | null = null;
+  let session: ResumableSearch | null = null;
+  let solveEnvironment: Environment | null = null;
   let log: TraceEvent[] = [];
   let result: SolveResult | null = null;
   let replayIndex: number | null = null;
@@ -75,12 +80,12 @@ export function createController({ generator, solvers, scheduler, onRender, init
   let frameVersion = 0;
   let disposed = false;
   let edited = false;
-  // Bumped by generate() and edit() so a call can tell that a listener replaced it mid-way.
+  // Bumped when an operation replaces playback so listener-triggered replacements win.
   let operation = 0;
   const listeners = new Set<ControllerListener>();
   const active = (): boolean => playback.kind === 'running' || playback.kind === 'paused';
   const emit = (event: ControllerEvent): void => { for (const listener of [...listeners]) listener(event); };
-  const render = (): void => { if (!disposed) onRender(selectViewModel(generation.environment, traceState, playback)); };
+  const render = (): void => { if (!disposed) onRender(selectViewModel(selectTraceEnvironment(traceState, solveEnvironment ?? generation.environment), traceState, playback)); };
   function setPlayback(next: PlaybackState): void {
     playback = next;
     emit({ type: 'state-change', playback });
@@ -93,13 +98,11 @@ export function createController({ generator, solvers, scheduler, onRender, init
   }
   function abandon(): void {
     cancelFrame();
-    const abandoned = iterator;
-    iterator = null;
+    session = null;
     replayIndex = null;
-    abandoned?.return(cancelledResult(traceState.visited.size));
+    solveEnvironment = null;
   }
   function finish(completed: SolveResult): void {
-    iterator = null;
     replayIndex = null;
     result = completed;
     cancelFrame();
@@ -117,8 +120,8 @@ export function createController({ generator, solvers, scheduler, onRender, init
       event = recorded;
       replayIndex += 1;
     } else {
-      if (iterator === null) return;
-      const next = iterator.next();
+      if (session === null) return;
+      const next = session.next();
       if (next.done) { finish(next.value); return; }
       // Own the recorded path so a caller cannot change a replay through a yielded array.
       event = next.value.type === 'path' ? { type: 'path', path: [...next.value.path] } : { ...next.value };
@@ -145,17 +148,19 @@ export function createController({ generator, solvers, scheduler, onRender, init
   function begin(kind: 'running' | 'paused', solverId?: SolverId): void {
     const descriptor = solverId === undefined ? selected : solvers.find(entry => entry.id === solverId);
     if (descriptor === undefined || descriptor === null) throw new RangeError('Unknown or missing solver');
+    ++operation;
     abandon();
     selected = descriptor;
     traceState = initialTraceState;
     log = [];
     result = null;
     carryMs = 0;
-    const started = descriptor.solver(generation.environment, generation.environment);
-    iterator = started;
+    const started = descriptor.resumable(generation.environment, generation.environment);
+    session = started;
+    solveEnvironment = generation.environment;
     setPlayback({ kind, solverLabel: descriptor.label });
     // A state-change listener may have replaced this solve; announcing it now would arrive after the replacement's start.
-    if (iterator !== started) return;
+    if (session !== started) return;
     emit({ type: 'solve-started', solverId: descriptor.id, solverLabel: descriptor.label });
   }
   const controller: CornrowController = {
@@ -179,20 +184,60 @@ export function createController({ generator, solvers, scheduler, onRender, init
     },
     edit(environment) {
       if (disposed) return;
+      if (session !== null) {
+        // Mirror the session's applyEdit precondition so a rejected edit leaves playback untouched.
+        const { rows, cols } = generation.environment;
+        if (environment.rows !== rows || environment.cols !== cols) throw new RangeError('edit: dimensions differ from the current generation');
+        toNodeId(environment, environment.goal);
+      }
       const current = ++operation;
-      const wasActive = active();
-      abandon();
-      if (wasActive) setPlayback(finishPlayback(cancelledResult(traceState.visited.size)));
-      if (operation !== current) return;
+      const wasReplay = replayIndex !== null;
+      const wasPaused = playback.kind === 'paused';
+      if (wasReplay) {
+        cancelFrame();
+        replayIndex = null;
+        traceState = log.reduce(applyTraceEvent, initialTraceState);
+      }
       generation = { ...generation, environment };
-      traceState = initialTraceState;
-      log = []; result = null; carryMs = 0;
       edited = true;
-      setPlayback({ kind: 'idle' });
-      // A state-change listener may have replaced this edit; announcing it now would contradict the snapshot.
-      if (operation !== current) return;
+      if (session !== null) {
+        const applied = session.applyEdit(environment);
+        for (const yielded of applied.events) {
+          const event = yielded.type === 'path' ? { ...yielded, path: [...yielded.path] } : { ...yielded };
+          log.push(event);
+          traceState = applyTraceEvent(traceState, event);
+          emit({ type: 'step', event, traceState });
+          if (operation !== current) return;
+        }
+        if (wasReplay && wasPaused) {
+          // Restore the live session without overriding the user's paused Replay intent.
+          result = null;
+          carryMs = 0;
+          previousMs = null;
+        } else if (wasReplay || playback.kind === 'finished') {
+          carryMs = 0;
+          previousMs = null;
+          if (applied.hasMoreToSearch) {
+            result = null;
+            // begin() creates a session only after selecting its solver; abandonment clears the session.
+            setPlayback({ kind: 'running', solverLabel: selected!.label });
+            if (operation !== current) return;
+          } else {
+            const completed = session.next();
+            if (!completed.done) throw new Error('Completed edit must re-emit its result');
+            result = completed.value;
+            cancelFrame();
+            setPlayback(finishPlayback(completed.value));
+            if (operation !== current) return;
+            emit({ type: 'solved', result: completed.value });
+            if (operation !== current) return;
+          }
+        }
+      }
       emit({ type: 'edited', environment });
+      if (operation !== current) return;
       render();
+      requestFrame();
     },
     solve(solverId) {
       if (disposed) return;
@@ -210,6 +255,7 @@ export function createController({ generator, solvers, scheduler, onRender, init
     },
     reset() {
       if (disposed) return;
+      ++operation;
       abandon();
       traceState = initialTraceState;
       log = []; result = null; carryMs = 0;
@@ -239,7 +285,7 @@ export function createController({ generator, solvers, scheduler, onRender, init
       if (playback.kind === 'idle') begin('paused');
       cancelFrame();
       const version = frameVersion;
-      while (!disposed && version === frameVersion && active() && (iterator !== null || replayIndex !== null)) consume();
+      while (!disposed && version === frameVersion && active() && (session !== null || replayIndex !== null)) consume();
       render();
     },
     getSnapshot: () => ({ generation, edited, traceState, playback, stepsPerSecond, selectedSolver: selected?.id ?? null }),
@@ -250,6 +296,7 @@ export function createController({ generator, solvers, scheduler, onRender, init
     dispose() {
       if (disposed) return;
       disposed = true;
+      ++operation;
       abandon(); listeners.clear();
     },
   };

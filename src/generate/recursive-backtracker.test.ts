@@ -47,7 +47,7 @@ describe('recursive backtracker', () => {
   it.each([
     { seed: 0, rows: 5, cols: 5 },
     { seed: -1, rows: 1, cols: 8.6 },
-    { seed: 'largest', rows: 100, cols: 80 },
+    { seed: 'largest', rows: 250, cols: 200 },
     { seed: 'rectangle', rows: 7, cols: 12 },
   ])('generates a connected symmetric spanning tree for %j', options => {
     const result = recursiveBacktracker(options);
