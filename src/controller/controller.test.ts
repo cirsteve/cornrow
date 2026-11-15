@@ -348,3 +348,34 @@ it('switches an active solve to terrain on the same seed and dimensions, then re
   expect(playback).toMatchObject({ kind: 'finished', outcome: 'found', pathCost: pathCost(generation.environment, traceState.path ?? []) });
   controller.dispose();
 });
+
+import { setGoal } from '../edit/edit-environment.js';
+it('cancels active playback on edit, preserves provenance and solves the new goal', () => {
+  const { controller, events, onRender, scheduler } = setup();
+  expect(controller.getSnapshot().edited).toBe(false);
+  const before = controller.getSnapshot().generation;
+  const changed = setGoal(before.environment, { row: 3, col: 2 });
+  if (!changed.ok) throw new Error(changed.error.detail);
+  controller.solve();
+  events.length = 0;
+  const renders = onRender.mock.calls.length;
+  controller.edit(changed.value);
+  expect(events).toMatchObject([
+    { type: 'state-change', playback: { kind: 'finished', outcome: 'cancelled' } },
+    { type: 'state-change', playback: { kind: 'idle' } },
+    { type: 'edited', environment: changed.value },
+  ]);
+  expect(onRender).toHaveBeenCalledTimes(renders + 1);
+  expect(scheduler.callbacks.size).toBe(0);
+  expect(controller.getSnapshot()).toMatchObject({ edited: true, generation: { ...before, environment: changed.value }, traceState: initialTraceState, playback: { kind: 'idle' } });
+  controller.solve(); controller.runToEnd();
+  expect(controller.getSnapshot().traceState.path?.at(-1)).toBe(changed.value.goal);
+  controller.generate();
+  expect(controller.getSnapshot().edited).toBe(false);
+  controller.dispose();
+  events.length = 0;
+  const disposedRenders = onRender.mock.calls.length;
+  controller.edit(changed.value);
+  expect(events).toEqual([]);
+  expect(onRender).toHaveBeenCalledTimes(disposedRenders);
+});

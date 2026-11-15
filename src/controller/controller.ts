@@ -12,6 +12,7 @@ import { finishPlayback, pausePlayback, resumePlayback, type PlaybackState } fro
 
 export type MazeGeneration = GenerationResult<Environment, EnvironmentOptions>;
 export type ControllerEvent =
+  | { readonly type: 'edited'; readonly environment: Environment }
   | { readonly type: 'generated'; readonly generation: MazeGeneration }
   | { readonly type: 'solve-started'; readonly solverId: SolverId; readonly solverLabel: string }
   | { readonly type: 'step'; readonly event: TraceEvent; readonly traceState: TraceState }
@@ -26,6 +27,7 @@ export interface ControllerOptions {
   readonly initialOptions: EnvironmentOptions;
 }
 export interface ControllerSnapshot {
+  readonly edited: boolean;
   readonly generation: MazeGeneration;
   readonly traceState: TraceState;
   readonly playback: PlaybackState;
@@ -38,6 +40,7 @@ export interface ControllerSnapshot {
  * solve/step/runToEnd throw RangeError if no registered solver is available when starting.
  */
 export interface CornrowController {
+  edit(environment: Environment): void;
   generate(options?: Partial<EnvironmentOptions>): void;
   /** @throws RangeError for an unknown/missing solver, before changing playback. */
   solve(solverId?: SolverId): void;
@@ -71,6 +74,7 @@ export function createController({ generator, solvers, scheduler, onRender, init
   let pending: FrameHandle | null = null;
   let frameVersion = 0;
   let disposed = false;
+  let edited = false;
   const listeners = new Set<ControllerListener>();
   const active = (): boolean => playback.kind === 'running' || playback.kind === 'paused';
   const emit = (event: ControllerEvent): void => { for (const listener of [...listeners]) listener(event); };
@@ -160,10 +164,24 @@ export function createController({ generator, solvers, scheduler, onRender, init
       if (wasActive) setPlayback(finishPlayback(cancelledResult(traceState.visited.size)));
       options = mergeEnvironmentOptions(options, nextOptions);
       generation = generator(options);
+      edited = false;
       traceState = initialTraceState;
       log = []; result = null; carryMs = 0;
       setPlayback({ kind: 'idle' });
       emit({ type: 'generated', generation });
+      render();
+    },
+    edit(environment) {
+      if (disposed) return;
+      const wasActive = active();
+      abandon();
+      if (wasActive) setPlayback(finishPlayback(cancelledResult(traceState.visited.size)));
+      generation = { ...generation, environment };
+      traceState = initialTraceState;
+      log = []; result = null; carryMs = 0;
+      edited = true;
+      setPlayback({ kind: 'idle' });
+      emit({ type: 'edited', environment });
       render();
     },
     solve(solverId) {
@@ -214,7 +232,7 @@ export function createController({ generator, solvers, scheduler, onRender, init
       while (!disposed && version === frameVersion && active() && (iterator !== null || replayIndex !== null)) consume();
       render();
     },
-    getSnapshot: () => ({ generation, traceState, playback, stepsPerSecond, selectedSolver: selected?.id ?? null }),
+    getSnapshot: () => ({ generation, edited, traceState, playback, stepsPerSecond, selectedSolver: selected?.id ?? null }),
     on(listener) {
       if (!disposed) listeners.add(listener);
       return () => { listeners.delete(listener); };
