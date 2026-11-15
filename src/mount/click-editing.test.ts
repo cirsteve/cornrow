@@ -154,3 +154,46 @@ it('applies a typed seed on Enter without relying on implicit form submission', 
     handle.destroy(); globals.assertBalanced(host);
   } finally { handle.destroy(); globals.restore(); }
 });
+
+it.each([false, true])('continues finished edits with reduced motion %s and preserves paused intent', reducedMotion => {
+  const globals = instrumentGlobals({ reducedMotion });
+  const host = document.createElement('div');
+  const handle = mountCornrow(host, { seed: 'cornrow', rows: 10, cols: 10, stepsPerSecond: 500 });
+  try {
+    const root = host.firstElementChild?.shadowRoot;
+    const status = () => root?.querySelector('[aria-live]')?.textContent ?? '';
+    const states: string[] = [];
+    let lastPath: readonly number[] = [];
+    handle.on(event => {
+      if (event.type === 'state-change') states.push(event.playback.kind);
+      if (event.type === 'solved') lastPath = event.result.path;
+    });
+    handle.setGoal({ row: 0, col: 1 });
+    expect(status()).toContain('Ready to solve');
+    expect(globals.pendingFrames.size).toBe(0);
+    handle.solve();
+    for (let now = 0; globals.pendingFrames.size && now < 10000; now += 250) globals.frame(now);
+    expect(states.at(-1)).toBe('finished');
+    handle.setGoal({ row: 9, col: 9 });
+    if (reducedMotion) {
+      expect(states.at(-1)).toBe('finished');
+      expect(lastPath.at(-1)).toBe(99);
+      expect(globals.frameRequests).toBe(0);
+    } else {
+      expect(states.at(-1)).toBe('running');
+      expect(globals.pendingFrames.size).toBe(1);
+      expect(status()).toContain('; search continuing. Continuing search with');
+      for (let now = 10000; globals.pendingFrames.size && now < 20000; now += 250) globals.frame(now);
+      expect(states.at(-1)).toBe('finished');
+      expect(lastPath.at(-1)).toBe(99);
+      handle.solve(); globals.frame(20000); globals.frame(20010); handle.pause();
+      handle.setGoal({ row: 2, col: 3 });
+      expect(status()).toBe('Goal moved to row 3, column 4; search continuing. Paused continuing search with Breadth-first search');
+      expect(globals.pendingFrames.size).toBe(0);
+    }
+    handle.reset(); expect(status()).not.toContain('search continuing');
+    handle.solve(); expect(status()).not.toContain('search continuing');
+    handle.generate(); expect(status()).not.toContain('search continuing');
+    handle.destroy(); globals.assertBalanced(host);
+  } finally { handle.destroy(); globals.restore(); }
+});

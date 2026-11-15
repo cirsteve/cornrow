@@ -60,5 +60,12 @@ it.each([
   ['goal', 'wall-maze', 'Goal moved to row 3, column 7'],
   ['goal', 'terrain', 'Goal moved to row 3, column 7'],
 ] as const)('describes %s in %s', (tool, kind, expected) => {
-  expect(describeEdit({ tool, kind, cell: { row: 2, col: 6 } })).toBe(expected);
+  expect(describeEdit({ tool, kind, cell: { row: 2, col: 6 }, continuing: false })).toBe(expected);
+  expect(describeEdit({ tool, kind, cell: { row: 2, col: 6 }, continuing: true })).toBe(`${expected}; search continuing`);
+});
+
+it('describes continuing running and paused searches explicitly', () => {
+  expect(describeOutcome({ kind: 'idle' }, 'BFS', 'wall-maze', true)).toBe('Ready to solve with BFS');
+  expect(describeOutcome({ kind: 'running', solverLabel: 'A*' }, 'BFS', 'wall-maze', true)).toBe('Continuing search with A*');
+  expect(describeOutcome({ kind: 'paused', solverLabel: 'A*' }, 'BFS', 'wall-maze', true)).toBe('Paused continuing search with A*');
 });

@@ -115,10 +115,9 @@ export function mountCornrow(element: HTMLElement, initialOptions: MountOptions 
     if (legend) legend.element.hidden = snapshot.generation.environment.kind !== 'terrain';
     const { rows, cols, kind } = snapshot.generation.environment;
     if (kind !== lastKind) { controls?.setEnvironmentKind(kind); lastKind = kind; }
-    if (snapshot.playback.kind !== 'idle') editing?.clear();
     const label = solverLabel();
     canvas.setAttribute('aria-label', `${options.label}: ${rows} × ${cols} maze, ${snapshot.edited ? 'edited from seed' : 'seed'} ${snapshot.generation.seed}, ${label}`);
-    const outcome = describeOutcome(snapshot.playback, label, snapshot.generation.environment.kind);
+    const outcome = describeOutcome(snapshot.playback, label, snapshot.generation.environment.kind, editing?.continuing ?? false);
     const text = editing?.announcement ? `${editing.announcement}. ${outcome}` : outcome;
     if (status && status.textContent !== text) status.textContent = text;
     controls?.update(snapshot.playback, reduced);
@@ -148,7 +147,14 @@ export function mountCornrow(element: HTMLElement, initialOptions: MountOptions 
   });
   const playback = controller;
   editing = controls ? createClickEditing({ canvas, surface, controller: playback, disposables, controls,
-    getOptions: () => options, onEdited: () => { runningIntent = false; } }) : null;
+    getOptions: () => options, beforeEdit: () => {
+      const kind = playback.getSnapshot().playback.kind;
+      if (kind === 'running' || kind === 'finished') runningIntent = true;
+    }, afterEdit: () => {
+      runningIntent = playback.getSnapshot().playback.kind === 'running';
+      if (runningIntent) reconcilePlayback();
+      updateText();
+    } }) : null;
   disposables.add(() => playback.dispose());
   playback.setSpeed(options.stepsPerSecond);
 
@@ -219,6 +225,7 @@ export function mountCornrow(element: HTMLElement, initialOptions: MountOptions 
     },
     solve(id = options.solver) {
       if (destroyed) return;
+      editing?.clear();
       options = normaliseMountOptions({ ...options, solver: id }, options.seed);
       if (controls) controls.algorithm.value = options.solver;
       loop?.restart('solving');
@@ -231,7 +238,7 @@ export function mountCornrow(element: HTMLElement, initialOptions: MountOptions 
       if (destroyed || (!background && playback.getSnapshot().playback.kind !== 'paused')) return;
       runningIntent = true; reconcilePlayback();
     },
-    reset() { if (!destroyed) { runningIntent = false; loop?.restart(); playback.reset(); } },
+    reset() { if (!destroyed) { editing?.clear(); runningIntent = false; loop?.restart(); playback.reset(); } },
     on(listener) { return destroyed ? () => {} : disposables.add(playback.on(listener)); },
     destroy() {
       if (destroyed) return;
@@ -280,6 +287,7 @@ export function mountCornrow(element: HTMLElement, initialOptions: MountOptions 
     });
     disposables.listen(controls.step, 'click', () => {
       if (!reduced || destroyed) return;
+      editing?.clear();
       runningIntent = false;
       const state = playback.getSnapshot().playback;
       if (state.kind === 'finished') playback.replay();
