@@ -201,3 +201,37 @@ it.each([false, true])('continues finished edits with reduced motion %s and pres
     handle.destroy(); globals.assertBalanced(host);
   } finally { handle.destroy(); globals.restore(); }
 });
+
+it.each([false, true])('preserves suspended resume intent across edits with explicit pause %s', explicitlyPaused => {
+  const globals = instrumentGlobals();
+  const host = document.createElement('div');
+  const handle = mountCornrow(host, { seed: 'cornrow', rows: 10, cols: 10 });
+  try {
+    handle.solve(); globals.frame(0); globals.frame(100);
+    globals.intersect(false);
+    if (explicitlyPaused) handle.pause();
+    handle.setGoal({ row: 2, col: 3 });
+    expect(globals.pendingFrames.size).toBe(0);
+    globals.intersect(true);
+    expect(globals.pendingFrames.size).toBe(explicitlyPaused ? 0 : 1);
+    handle.destroy(); globals.assertBalanced(host);
+  } finally { handle.destroy(); globals.restore(); }
+});
+
+it('keeps a listener replacement from restoring the discarded edit announcement', () => {
+  const globals = instrumentGlobals();
+  const host = document.createElement('div');
+  const handle = mountCornrow(host, { seed: 'cornrow' });
+  try {
+    handle.solve(); handle.pause();
+    handle.on(event => {
+      if (event.type === 'step' && event.event.type === 'edit') handle.generate({ seed: 'replacement' });
+    });
+    handle.setGoal({ row: 2, col: 3 });
+    const root = host.firstElementChild?.shadowRoot;
+    expect(root?.querySelector('[aria-live]')?.textContent).toBe('Ready to solve with Breadth-first search');
+    expect(root?.querySelector('canvas')?.getAttribute('aria-label')).toContain('seed replacement');
+    expect(globals.pendingFrames.size).toBe(0);
+    handle.destroy(); globals.assertBalanced(host);
+  } finally { handle.destroy(); globals.restore(); }
+});

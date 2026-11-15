@@ -9,7 +9,6 @@ import { createClickEditing } from './click-editing.js';
 import type { CellCoord, SolverId } from '../model/wall-maze.js';
 import { createCanvasSurface } from '../render/canvas-surface.js';
 import { drawMaze } from '../render/draw-maze.js';
-import { selectViewModel } from '../render/select-view-model.js';
 import type { MazeViewModel } from '../render/view-model.js';
 import { getSolver, solverRegistry } from '../search/registry.js';
 import { createBackgroundLoop, type BackgroundLoop } from './background-loop.js';
@@ -124,15 +123,16 @@ export function mountCornrow(element: HTMLElement, initialOptions: MountOptions 
     controls?.update(snapshot.playback, reduced);
     if (surface === null) fallback.update(snapshot, label);
   }
+  let latestView: MazeViewModel | null = null;
   function paint(view: MazeViewModel): void {
     if (destroyed) return;
+    latestView = view;
     if (surface) drawMaze(surface, view, appearance.render);
     updateText();
   }
   function redraw(): void {
     if (destroyed || controller === null) return;
-    const snapshot = controller.getSnapshot();
-    paint(selectViewModel(snapshot.generation.environment, snapshot.traceState, snapshot.playback));
+    if (latestView !== null) paint(latestView);
   }
   function resize(): void {
     if (destroyed) return;
@@ -152,7 +152,8 @@ export function mountCornrow(element: HTMLElement, initialOptions: MountOptions 
       const kind = playback.getSnapshot().playback.kind;
       if (kind === 'running' || kind === 'finished') runningIntent = true;
     }, afterEdit: () => {
-      runningIntent = playback.getSnapshot().playback.kind === 'running';
+      const kind = playback.getSnapshot().playback.kind;
+      runningIntent = kind === 'running' || (suspended && kind === 'paused' && runningIntent);
       if (runningIntent) reconcilePlayback();
       updateText();
     } }) : null;

@@ -35,7 +35,9 @@ export function createClickEditing({ canvas, surface, controller, disposables, c
     if (!result.ok) return result;
     beforeEdit();
     controller.edit(result.value);
-    const playback = controller.getSnapshot().playback;
+    const snapshot = controller.getSnapshot();
+    if (snapshot.generation.environment !== result.value) return ok(undefined);
+    const playback = snapshot.playback;
     continuing = playback.kind === 'running' || playback.kind === 'paused';
     announcement = { tool: selected, kind: env.kind, cell };
     afterEdit();

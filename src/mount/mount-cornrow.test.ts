@@ -306,3 +306,26 @@ it('mounts terrain, switches native environments on the field seed, and balances
     expect(host.outerHTML).toBe(original);
   } finally { handle.destroy(); globals.restore(); }
 });
+
+it('retains the historical Replay view through resize and appearance redraws', () => {
+  const globals = instrumentGlobals({ reducedMotion: true });
+  const host = document.createElement('div');
+  const handle = mountCornrow(host, { seed: 'cornrow', rows: 10, cols: 10 });
+  try {
+    handle.setGoal({ row: 0, col: 1 }); handle.solve();
+    handle.setGoal({ row: 9, col: 9 });
+    const root = host.firstElementChild?.shadowRoot;
+    const step = Array.from(root?.querySelectorAll('button') ?? []).find(button => button.textContent === 'Step');
+    if (!step) throw new Error('Missing Step');
+    step.click(); // Replay pauses before the first edit entry.
+    const before = globals.context.fillRect.mock.calls.map(call => [...call]);
+    globals.context.fillRect.mockClear();
+    globals.resize();
+    const resized = globals.context.fillRect.mock.calls.map(call => [...call]);
+    globals.context.fillRect.mockClear();
+    handle.setAppearance({});
+    expect(globals.context.fillRect.mock.calls).toEqual(resized);
+    expect(before.slice(-resized.length)).toEqual(resized);
+    handle.destroy(); globals.assertBalanced(host);
+  } finally { handle.destroy(); globals.restore(); }
+});
