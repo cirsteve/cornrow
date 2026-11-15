@@ -5,18 +5,44 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Cornrow — an embeddable maze</title>
     <style>
-      body { margin: 0; background: #f8f6ef; color: #172b21; font: 1rem/1.6 system-ui, sans-serif; }
+      body { margin: 0; background: var(--demo-page-background); color: var(--demo-page-text); font: 1rem/1.6 system-ui, sans-serif; }
       main { max-width: 48rem; margin: 2rem auto; padding: 0 1rem 3rem; }
       h1 { margin-bottom: .4rem; }
       p { max-width: 42rem; }
       #maze { width: 100%; margin: 1.5rem 0; }
+      #demo {
+        --demo-page-background: #F8F6EF; --demo-page-text: #172B21;
+        --demo-muted-text: #526358; --demo-panel-background: #FFFFFF; --demo-panel-border: #767676;
+        --demo-text: #172B21; --demo-status-text: #172B21; --demo-fallback-text: #172B21;
+        --demo-control-background: #FFFFFF; --demo-control-text: #172B21; --demo-control-border: #767676;
+        --demo-control-hover-background: #EEF2EF; --demo-control-disabled-background: #F0F0F0;
+        --demo-control-disabled-text: #6B6B6B; --demo-focus-ring: #2865C1; --demo-control-accent: #2865C1;
+        --demo-validation-text: #B00020; --demo-legend-border: #222222;
+        color: var(--demo-page-text); background: var(--demo-page-background);
+      }
+      #demo::before { content: ''; position: fixed; inset: 0; background: var(--demo-page-background); z-index: -1; }
+      .appearance-panel { padding: 1rem; background: var(--demo-panel-background); border: 1px solid var(--demo-panel-border); }
+      .appearance-panel fieldset { min-width: 0; margin: 1rem 0; border-color: var(--demo-legend-border); }
+      .appearance-row { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin: .8rem 0; }
+      .appearance-row > label:first-child { flex-basis: 100%; }
+      .appearance-panel input, .appearance-panel button { min-width: 0; max-width: 100%; box-sizing: border-box; background: var(--demo-control-background); color: var(--demo-control-text); border: 1px solid var(--demo-control-border); accent-color: var(--demo-control-accent); }
+      .appearance-row input[type=text] { width: 8rem; flex-shrink: 1; }
+      .appearance-row input[type=number] { width: 5rem; }
+      .appearance-panel button:hover { background: var(--demo-control-hover-background); }
+      .appearance-panel :disabled { background: var(--demo-control-disabled-background); color: var(--demo-control-disabled-text); }
+      .appearance-panel :focus-visible { outline: 2px solid var(--demo-focus-ring); outline-offset: 2px; }
+      .appearance-help { color: var(--demo-muted-text); }
+      .appearance-error, .appearance-live { color: var(--demo-validation-text); }
+      .appearance-error { flex-basis: 100%; }
+      .appearance-swatch { display: inline-block; width: 1.5rem; height: 1.5rem; margin: 0 .4rem; flex-shrink: 0; }
     </style>
   </head>
   <body>
-    <main>
+    <main id="demo">
       <h1>Cornrow</h1>
       <p>A small maze, at home on an ordinary page. Generate a new seed, compare search algorithms, or replay a seed of your own.</p>
       <div id="maze"></div>
+      <div id="appearance"></div>
       <p>Use the native controls with your keyboard or touch. Playback rests when this maze is off-screen or the page is hidden. With reduced motion enabled, Solve finishes immediately and Step lets you explore at your own pace.</p>
     </main>
     <script type="module" src="/main.ts"></script>
