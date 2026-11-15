@@ -56,3 +56,22 @@ it('exports the terrain core and preserves precise generation types without a DO
   const run = solve(terrain.environment, descriptor.value.id);
   expect(run.result.cost).toBe(pathCost(terrain.environment, run.result.path));
 });
+
+import { defaultAppearance, mergeAppearance, normaliseHex, frontierColor, formatOverlay } from './index.js';
+import type { RenderAppearance, RenderPalette, FrontierAppearance, AppearanceError, AppearancePatch, CornrowAppearance, MountedUiTokens } from './index.js';
+it('exports appearance values and precise types without a DOM', () => {
+  expect(typeof document).toBe('undefined');
+  expect(Object.isFrozen(defaultAppearance.render.palette)).toBe(true);
+  expect(mergeAppearance(defaultAppearance, { render: { frontier: { shape: 'circle' } } }).ok).toBe(true);
+  const color = normaliseHex('#abcdef');
+  expect(color).toEqual({ ok: true, value: '#ABCDEF' });
+  expect(frontierColor(defaultAppearance.render.palette.frontier, 1)).toBe('#E69F00');
+  expect(formatOverlay(defaultAppearance.render.palette.visitedOverlay)).toBe('rgba(0, 70, 110, 0.16)');
+  expectTypeOf(defaultAppearance).toEqualTypeOf<CornrowAppearance>();
+  expectTypeOf(defaultAppearance.ui).toEqualTypeOf<MountedUiTokens>();
+  expectTypeOf(defaultAppearance.render).toEqualTypeOf<RenderAppearance>();
+  expectTypeOf(defaultAppearance.render.palette).toEqualTypeOf<RenderPalette>();
+  expectTypeOf(defaultAppearance.render.frontier).toEqualTypeOf<FrontierAppearance>();
+  expectTypeOf<AppearancePatch>().toMatchTypeOf<object>();
+  expectTypeOf<AppearanceError['kind']>().toEqualTypeOf<'invalid-patch' | 'destroyed'>();
+});

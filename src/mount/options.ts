@@ -1,7 +1,9 @@
+import type { AppearancePatch } from './appearance.js';
 import { clampGridSize, type SolverId } from '../model/wall-maze.js';
 import { getSolver } from '../search/registry.js';
 
 export interface MountOptions {
+  readonly appearance?: AppearancePatch;
   readonly environment?: 'wall-maze' | 'terrain';
   readonly openness?: number;
   readonly mode?: 'interactive' | 'background';

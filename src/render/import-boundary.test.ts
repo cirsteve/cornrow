@@ -11,7 +11,7 @@ function sourcePath(sourceRoot: string, dependency: string): string {
 }
 
 function isRenderDependency(sourceRoot: string, dependency: string): boolean {
-  return /^(?:render\/|model\/|trace\/|search\/contract(?:\.(?:ts|js))?$)/.test(sourcePath(sourceRoot, dependency));
+  return /^(?:primitives\/|render\/|model\/|trace\/|search\/contract(?:\.(?:ts|js))?$)/.test(sourcePath(sourceRoot, dependency));
 }
 
 function sources(directory: string): string[] {
@@ -61,4 +61,9 @@ it.each(['checkout(copy)', 'checkout[copy]', 'checkout+copy', 'checkout.copy'])(
   for (const forbidden of ['search/bfs', 'search/astar', 'search/registry', 'search/contract-extra', 'controller/controller', '../other/src/model/wall-maze']) {
     expect(isRenderDependency(sourceRoot, resolve(sourceRoot, forbidden))).toBe(false);
   }
+});
+
+it('keeps mounted appearance dependent only on render and primitives', () => {
+  for (const dependency of imports(resolve(src, 'mount/appearance.ts')))
+    expect(sourcePath(src, dependency)).toMatch(/^(render|primitives)\//);
 });

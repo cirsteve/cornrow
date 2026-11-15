@@ -97,3 +97,10 @@ export type { TerrainOptions } from './generate/terrain.js';
 export { validateTerrainMaze } from './generate/validate-terrain.js';
 export type { TerrainValidationError } from './generate/validate-terrain.js';
 export { dijkstra } from './search/dijkstra.js';
+
+export { defaultAppearance, mergeAppearance } from './mount/appearance.js';
+export type { MountedUiTokens, CornrowAppearance, AppearancePatch } from './mount/appearance.js';
+export { normaliseHex } from './render/merge-appearance.js';
+export { frontierColor } from './render/frontier-color.js';
+export { formatOverlay } from './render/appearance.js';
+export type { RenderAppearance, RenderPalette, FrontierAppearance, AppearanceError } from './render/appearance.js';
