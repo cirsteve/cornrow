@@ -1,3 +1,4 @@
+import type { CellCoord } from '../model/wall-maze.js';
 import type { PlaybackState } from '../controller/playback-state.js';
 
 export function describeOutcome(playback: PlaybackState, solverLabel: string, environmentKind: 'wall-maze' | 'terrain'): string {
@@ -12,4 +13,13 @@ export function describeOutcome(playback: PlaybackState, solverLabel: string, en
         case 'cancelled': return `Solve cancelled after exploring ${playback.exploredCount} cells`;
       }
   }
+}
+
+export function describeEdit(edit: { tool: 'add' | 'remove' | 'goal'; kind: 'wall-maze' | 'terrain'; cell: CellCoord }): string {
+  const position = `row ${edit.cell.row + 1}, column ${edit.cell.col + 1}`;
+  if (edit.tool === 'goal') return `Goal moved to ${position}`;
+  const action = edit.kind === 'wall-maze'
+    ? edit.tool === 'add' ? 'Added walls' : 'Removed walls'
+    : edit.tool === 'add' ? 'Raised cost' : 'Lowered cost';
+  return `${action} around ${position}`;
 }

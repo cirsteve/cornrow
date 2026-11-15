@@ -47,3 +47,17 @@ it('keeps the cost row present and toggles both elements across environment chan
     handle.destroy(); globals.assertBalanced(host);
   } finally { handle.destroy(); globals.restore(); }
 });
+
+it('accepts handle edits without registering canvas clicks and marks the seed as edited', () => {
+  const globals = instrumentGlobals({ contextAvailable: false }); const host = document.createElement('div');
+  const handle = mountCornrow(host, { seed: 'cornrow', rows: 10, cols: 10 });
+  try {
+    const root = host.firstElementChild?.shadowRoot; const canvas = root?.querySelector('canvas');
+    expect(globals.history.filter(r => r.target === canvas && r.type === 'click')).toHaveLength(0);
+    expect(handle.setGoal({ row: 2, col: 3 }).ok).toBe(true);
+    expect(root?.querySelector('dd')?.textContent).toBe('cornrow (edited)');
+    expect(root?.querySelector('[aria-live]')?.textContent).toBe('Goal moved to row 3, column 4. Ready to solve with Breadth-first search');
+    handle.generate({ seed: 'cornrow' }); expect(root?.querySelector('dd')?.textContent).toBe('cornrow');
+    handle.destroy(); globals.assertBalanced(host);
+  } finally { handle.destroy(); globals.restore(); }
+});

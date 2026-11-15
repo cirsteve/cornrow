@@ -10,6 +10,11 @@ it('renders a decorative, noninteractive wrapper with no controls, status or foc
   const handle = mountCornrow(host, { mode: 'background', rows: 5, cols: 5 });
   try {
     const wrapper = host.firstElementChild as HTMLElement;
+    const canvas = wrapper.shadowRoot?.querySelector('canvas');
+    expect(globals.history.filter(r => r.target === canvas && r.type === 'click')).toHaveLength(0);
+    for (const operation of ['addObstacles', 'removeObstacles', 'setGoal'] as const) {
+      expect(handle[operation]({ row: 2, col: 3 })).toMatchObject({ ok: false, error: { kind: 'background-mode', operation } });
+    }
     expect(wrapper.style.pointerEvents).toBe('none');
     expect(wrapper.getAttribute('aria-hidden')).toBe('true');
     expect(wrapper.shadowRoot?.querySelector('form, .terrain-legend, .status, [aria-live], button, input, select, a, [tabindex]')).toBeNull();

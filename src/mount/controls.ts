@@ -2,6 +2,11 @@ import type { PlaybackState } from '../controller/playback-state.js';
 import { solverRegistry } from '../search/registry.js';
 import type { NormalisedMountOptions } from './options.js';
 
+export type EditTool = 'none' | 'add' | 'remove' | 'goal';
+export function isEditTool(value: string): value is EditTool {
+  return value === 'none' || value === 'add' || value === 'remove' || value === 'goal';
+}
+
 export function createControls(document: Document, options: NormalisedMountOptions) {
   const form = document.createElement('form');
   form.setAttribute('aria-label', 'Maze controls');
@@ -47,9 +52,24 @@ export function createControls(document: Document, options: NormalisedMountOptio
   }
   environment.value = options.environment;
   const seed = labelled('Seed', document.createElement('input')); seed.type = 'text'; seed.value = String(options.seed);
+  const click = labelled('Click', document.createElement('select'));
+  for (const [value, text] of [['none', 'None'], ['add', 'Add obstacles'], ['remove', 'Remove obstacles'], ['goal', 'Move goal']] as const) {
+    const option = document.createElement('option'); option.value = value; option.textContent = text;
+    click.append(option);
+  }
+  click.value = 'none';
+  function setEnvironmentKind(kind: 'wall-maze' | 'terrain'): void {
+    for (const option of Array.from(click.options)) {
+      if (option.value === 'add') option.textContent = kind === 'wall-maze' ? 'Add walls' : 'Raise cost';
+      if (option.value === 'remove') option.textContent = kind === 'wall-maze' ? 'Remove walls' : 'Lower cost';
+    }
+  }
+  setEnvironmentKind(options.environment);
+  const area = labelled('Area', document.createElement('input'));
+  area.type = 'number'; area.min = '0'; area.max = '5'; area.step = '1'; area.value = String(options.editRadius);
   const step = button('Step'); step.hidden = true;
   return {
-    form, generate, solve, pause, reset, speed, size, algorithm, environment, seed, step, setSize,
+    click, area, setEnvironmentKind, form, generate, solve, pause, reset, speed, size, algorithm, environment, seed, step, setSize,
     update(playback: PlaybackState, reduced: boolean): void {
       const paused = playback.kind === 'paused';
       pause.textContent = paused ? 'Resume' : 'Pause';

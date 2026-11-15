@@ -19,7 +19,7 @@ export function createFallbackSummary(document: Document) {
       const { generation, playback, traceState } = snapshot;
       costTerm.hidden = costValue.hidden = generation.environment.kind !== 'terrain';
       costValue.textContent = playback.kind === 'finished' && playback.pathCost !== null ? String(playback.pathCost) : '—';
-      const values = [String(generation.seed), `${generation.environment.rows} × ${generation.environment.cols}`, solverLabel,
+      const values = [snapshot.edited ? `${generation.seed} (edited)` : String(generation.seed), `${generation.environment.rows} × ${generation.environment.cols}`, solverLabel,
         playback.kind === 'finished' ? playback.outcome : playback.kind,
         String(playback.kind === 'finished' ? playback.pathLength : traceState.path?.length ?? 0),
         String(playback.kind === 'finished' ? playback.exploredCount : traceState.visited.size)];
