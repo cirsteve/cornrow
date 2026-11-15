@@ -235,3 +235,24 @@ it('keeps a listener replacement from restoring the discarded edit announcement'
     handle.destroy(); globals.assertBalanced(host);
   } finally { handle.destroy(); globals.restore(); }
 });
+
+it.each(['reset', 'solve'] as const)('keeps a listener %s from restoring the discarded edit announcement', action => {
+  const globals = instrumentGlobals();
+  const host = document.createElement('div');
+  const handle = mountCornrow(host, { seed: 'cornrow' });
+  try {
+    handle.solve(); handle.pause();
+    let replaced = false;
+    handle.on(event => {
+      if (replaced || event.type !== 'step' || event.event.type !== 'edit') return;
+      replaced = true;
+      if (action === 'reset') handle.reset(); else handle.solve();
+    });
+    handle.setGoal({ row: 2, col: 3 });
+    const status = host.firstElementChild?.shadowRoot?.querySelector('[aria-live]')?.textContent;
+    expect(replaced).toBe(true);
+    expect(status).not.toContain('Goal moved');
+    expect(status).not.toContain('ontinuing');
+    handle.destroy(); globals.assertBalanced(host);
+  } finally { handle.destroy(); globals.restore(); }
+});

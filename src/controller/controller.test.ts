@@ -470,6 +470,30 @@ it.each(solverRegistry)('resumes valid paths with $id after wall, goal and cost 
   }
 });
 
+it('rejects a mid-solve edit with different dimensions before changing state', () => {
+  const { controller, scheduler, events } = setup(bfs, options => ({ ...recursiveBacktracker(options), environment: comparisonMaze }));
+  controller.solve(); scheduler.frame(0); scheduler.frame(200);
+  const before = controller.getSnapshot();
+  events.length = 0;
+  const resized = generateEnvironment({ seed: 'resized', rows: 6, cols: 6 }).environment;
+  expect(() => controller.edit(resized)).toThrow(RangeError);
+  expect(controller.getSnapshot()).toEqual(before);
+  expect(events).toEqual([]);
+  expect(scheduler.callbacks.size).toBe(1);
+});
+
+it('keeps replay running when a mid-replay edit is rejected', () => {
+  const { controller, scheduler } = setup(bfs, options => ({ ...recursiveBacktracker(options), environment: comparisonMaze }));
+  controller.solve(); controller.runToEnd();
+  controller.replay(); scheduler.frame(0); scheduler.frame(100);
+  const before = controller.getSnapshot();
+  const resized = generateEnvironment({ seed: 'resized', rows: 6, cols: 6 }).environment;
+  expect(() => controller.edit(resized)).toThrow(RangeError);
+  expect(controller.getSnapshot()).toEqual(before);
+  controller.runToEnd();
+  expect(controller.getSnapshot().playback.kind).toBe('finished');
+});
+
 it('reports unreachable after an edit walls off the goal', () => {
   const { controller, events, scheduler } = setup();
   const environment = controller.getSnapshot().generation.environment;

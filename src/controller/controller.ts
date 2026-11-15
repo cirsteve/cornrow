@@ -1,5 +1,5 @@
 import type { GenerationResult, EnvironmentOptions } from '../generate/contract.js';
-import type { SolverId } from '../model/wall-maze.js';
+import { toNodeId, type SolverId } from '../model/wall-maze.js';
 import type { Environment } from '../model/environment.js';
 import { mergeEnvironmentOptions } from './merge-environment-options.js';
 import { selectViewModel } from '../render/select-view-model.js';
@@ -40,6 +40,10 @@ export interface ControllerSnapshot {
  * solve/step/runToEnd throw RangeError if no registered solver is available when starting.
  */
 export interface CornrowController {
+  /**
+   * @throws RangeError while a search session exists if the environment's dimensions differ
+   * from the current generation or its goal is outside the grid, before changing any state.
+   */
   edit(environment: Environment): void;
   generate(options?: Partial<EnvironmentOptions>): void;
   /** @throws RangeError for an unknown/missing solver, before changing playback. */
@@ -180,6 +184,12 @@ export function createController({ generator, solvers, scheduler, onRender, init
     },
     edit(environment) {
       if (disposed) return;
+      if (session !== null) {
+        // Mirror the session's applyEdit precondition so a rejected edit leaves playback untouched.
+        const { rows, cols } = generation.environment;
+        if (environment.rows !== rows || environment.cols !== cols) throw new RangeError('edit: dimensions differ from the current generation');
+        toNodeId(environment, environment.goal);
+      }
       const current = ++operation;
       const wasReplay = replayIndex !== null;
       const wasPaused = playback.kind === 'paused';
