@@ -4,7 +4,7 @@ import type { WallMazeGenerator } from '../generate/contract';
 import { comparisonMaze, isolatedGoalMaze } from '../model/fixtures';
 import type { SolverId } from '../model/wall-maze';
 import { astar } from '../search/astar';
-import { bfs } from '../search/bfs';
+import { bfs, bfsResumable } from '../search/bfs';
 import { cancelledResult, type Solver } from '../search/contract';
 import { initialTraceState } from '../trace/trace-state';
 import { createController, type ControllerEvent } from './controller';
@@ -40,7 +40,7 @@ function setup(solver: Solver = bfs, generator: WallMazeGenerator = recursiveBac
   const injectedSolver = vi.fn(solver);
   const injectedGenerator = vi.fn(generator);
   const controller = createController({
-    generator: injectedGenerator, solvers: [{ id: solverId, label: 'Injected solver', solver: injectedSolver }],
+    generator: injectedGenerator, solvers: [{ id: solverId, label: 'Injected solver', solver: injectedSolver, resumable: bfsResumable }],
     scheduler, onRender, initialOptions,
   });
   const events: ControllerEvent[] = [];
@@ -240,7 +240,7 @@ describe('controller playback', () => {
     const astarId = 'astar' as SolverId;
     const controller = createController({
       generator: recursiveBacktracker,
-      solvers: [{ id: solverId, label: 'Injected solver', solver: bfs }, { id: astarId, label: 'A* (Manhattan)', solver: astar }],
+      solvers: [{ id: solverId, label: 'Injected solver', solver: bfs, resumable: bfsResumable }, { id: astarId, label: 'A* (Manhattan)', solver: astar, resumable: bfsResumable }],
       scheduler: new FakeScheduler(), onRender: vi.fn(), initialOptions,
     });
     const started: SolverId[] = [];
@@ -270,7 +270,7 @@ describe('controller playback', () => {
     const second = vi.fn(bfs);
     const secondId = 'second' as SolverId;
     const controller = createController({ generator: recursiveBacktracker, solvers: [
-      { id: solverId, label: 'First', solver: first }, { id: secondId, label: 'Second', solver: second },
+      { id: solverId, label: 'First', solver: first, resumable: bfsResumable }, { id: secondId, label: 'Second', solver: second, resumable: bfsResumable },
     ], scheduler, onRender: vi.fn(), initialOptions });
     controller.solve(secondId); controller.runToEnd();
     controller.reset(); controller.step();
