@@ -67,3 +67,9 @@ it('keeps mounted appearance dependent only on render and primitives', () => {
   for (const dependency of imports(resolve(src, 'mount/appearance.ts')))
     expect(sourcePath(src, dependency)).toMatch(/^(render|primitives)\//);
 });
+
+it('keeps edit dependent only on model and primitives', () => {
+  for (const file of sources(resolve(src, 'edit'))) {
+    for (const dependency of imports(file)) expect(sourcePath(src, dependency)).toMatch(/^(model|primitives)\//);
+  }
+});

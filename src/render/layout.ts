@@ -1,3 +1,4 @@
+import type { GridSize, CellCoord } from '../model/wall-maze.js';
 import type { Point, Size } from './drawing-surface.js';
 
 export interface MazeLayout { readonly cellSize: number; readonly origin: Point }
@@ -14,4 +15,12 @@ export function computeLayout(rows: number, cols: number, size: Size): MazeLayou
   }
   const cellSize = Math.min(size.width / cols, size.height / rows);
   return { cellSize, origin: { x: (size.width - cols * cellSize) / 2, y: (size.height - rows * cellSize) / 2 } };
+}
+
+/** Map a CSS-pixel point to a cell, excluding letterbox margins and the far edges. */
+export function cellAtPoint(layout: MazeLayout, grid: GridSize, point: Point): CellCoord | null {
+  if (layout.cellSize <= 0 || !Number.isFinite(point.x) || !Number.isFinite(point.y)) return null;
+  const col = Math.floor((point.x - layout.origin.x) / layout.cellSize);
+  const row = Math.floor((point.y - layout.origin.y) / layout.cellSize);
+  return row >= 0 && row < grid.rows && col >= 0 && col < grid.cols ? { row, col } : null;
 }

@@ -117,6 +117,22 @@ and default goal is (rows−1, cols−1). Each size is rounded and clamped to 5�
 cells per side. The renderer's wall masks describe walls present, the inverse
 of model passage bits.
 
+### Editing environments
+
+```ts
+import { addObstacles, setGoal } from '@cirsteve/cornrow';
+
+let editedEnvironment = environment;
+const obstacles = addObstacles(editedEnvironment, { row: 4, col: 4 }, 1);
+if (obstacles.ok) editedEnvironment = obstacles.value;
+const goal = setGoal(editedEnvironment, { row: 3, col: 7 });
+if (goal.ok) editedEnvironment = goal.value;
+```
+
+Edits may create loops, disconnect cells or make the goal unreachable; solvers
+report unreachable. They may change terrain costs or move the goal. Any
+regeneration discards edits, and edited environments are not reproducible from the seed.
+
 ## Terrain
 
 Terrain opens extra passages and assigns entry costs of 1, 2, 4 or 8 to cells.
