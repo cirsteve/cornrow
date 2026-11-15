@@ -4,8 +4,8 @@ import type { Environment } from '../model/environment.js';
 import { mergeEnvironmentOptions } from './merge-environment-options.js';
 import { selectViewModel } from '../render/select-view-model.js';
 import type { MazeViewModel } from '../render/view-model.js';
-import { cancelledResult, type SolveResult, type SolverDescriptor, type TraceEvent } from '../search/contract.js';
-import { applyTraceEvent, initialTraceState, type TraceState } from '../trace/trace-state.js';
+import { cancelledResult, type ResumableSearch, type SolveResult, type SolverDescriptor, type TraceEvent } from '../search/contract.js';
+import { applyTraceEvent, initialTraceState, selectTraceEnvironment, type TraceState } from '../trace/trace-state.js';
 import { advanceAccumulator } from './accumulator.js';
 import type { FrameHandle, FrameScheduler } from './frame-scheduler.js';
 import { finishPlayback, pausePlayback, resumePlayback, type PlaybackState } from './playback-state.js';
@@ -64,7 +64,8 @@ export function createController({ generator, solvers, scheduler, onRender, init
   let traceState = initialTraceState;
   let playback: PlaybackState = { kind: 'idle' };
   let selected = solvers[0] ?? null;
-  let iterator: Generator<TraceEvent, SolveResult> | null = null;
+  let session: ResumableSearch | null = null;
+  let solveEnvironment: Environment | null = null;
   let log: TraceEvent[] = [];
   let result: SolveResult | null = null;
   let replayIndex: number | null = null;
@@ -80,7 +81,7 @@ export function createController({ generator, solvers, scheduler, onRender, init
   const listeners = new Set<ControllerListener>();
   const active = (): boolean => playback.kind === 'running' || playback.kind === 'paused';
   const emit = (event: ControllerEvent): void => { for (const listener of [...listeners]) listener(event); };
-  const render = (): void => { if (!disposed) onRender(selectViewModel(generation.environment, traceState, playback)); };
+  const render = (): void => { if (!disposed) onRender(selectViewModel(selectTraceEnvironment(traceState, solveEnvironment ?? generation.environment), traceState, playback)); };
   function setPlayback(next: PlaybackState): void {
     playback = next;
     emit({ type: 'state-change', playback });
@@ -93,13 +94,11 @@ export function createController({ generator, solvers, scheduler, onRender, init
   }
   function abandon(): void {
     cancelFrame();
-    const abandoned = iterator;
-    iterator = null;
+    session = null;
     replayIndex = null;
-    abandoned?.return(cancelledResult(traceState.visited.size));
+    solveEnvironment = null;
   }
   function finish(completed: SolveResult): void {
-    iterator = null;
     replayIndex = null;
     result = completed;
     cancelFrame();
@@ -117,8 +116,8 @@ export function createController({ generator, solvers, scheduler, onRender, init
       event = recorded;
       replayIndex += 1;
     } else {
-      if (iterator === null) return;
-      const next = iterator.next();
+      if (session === null) return;
+      const next = session.next();
       if (next.done) { finish(next.value); return; }
       // Own the recorded path so a caller cannot change a replay through a yielded array.
       event = next.value.type === 'path' ? { type: 'path', path: [...next.value.path] } : { ...next.value };
@@ -151,11 +150,12 @@ export function createController({ generator, solvers, scheduler, onRender, init
     log = [];
     result = null;
     carryMs = 0;
-    const started = descriptor.solver(generation.environment, generation.environment);
-    iterator = started;
+    const started = descriptor.resumable(generation.environment, generation.environment);
+    session = started;
+    solveEnvironment = generation.environment;
     setPlayback({ kind, solverLabel: descriptor.label });
     // A state-change listener may have replaced this solve; announcing it now would arrive after the replacement's start.
-    if (iterator !== started) return;
+    if (session !== started) return;
     emit({ type: 'solve-started', solverId: descriptor.id, solverLabel: descriptor.label });
   }
   const controller: CornrowController = {
@@ -239,7 +239,7 @@ export function createController({ generator, solvers, scheduler, onRender, init
       if (playback.kind === 'idle') begin('paused');
       cancelFrame();
       const version = frameVersion;
-      while (!disposed && version === frameVersion && active() && (iterator !== null || replayIndex !== null)) consume();
+      while (!disposed && version === frameVersion && active() && (session !== null || replayIndex !== null)) consume();
       render();
     },
     getSnapshot: () => ({ generation, edited, traceState, playback, stepsPerSecond, selectedSolver: selected?.id ?? null }),

@@ -5,7 +5,7 @@ import { comparisonMaze, isolatedGoalMaze } from '../model/fixtures';
 import type { SolverId } from '../model/wall-maze';
 import { astar } from '../search/astar';
 import { bfs, bfsResumable } from '../search/bfs';
-import { cancelledResult, type Solver } from '../search/contract';
+import { type Solver } from '../search/contract';
 import { initialTraceState } from '../trace/trace-state';
 import { createController, type ControllerEvent } from './controller';
 import { createAnimationFrameScheduler, type FrameHandle, type FrameScheduler } from './frame-scheduler';
@@ -37,10 +37,13 @@ const initialOptions = { seed: 'cornrow', rows: 5, cols: 5 };
 function setup(solver: Solver = bfs, generator: WallMazeGenerator = recursiveBacktracker) {
   const scheduler = new FakeScheduler();
   const onRender = vi.fn();
-  const injectedSolver = vi.fn(solver);
+  const injectedSolver = vi.fn(solver === bfs ? bfsResumable : (environment, endpoints) => {
+    const iterator = solver(environment, endpoints);
+    return { next: () => iterator.next(), applyEdit: () => { throw new Error('Test solver does not support edits'); } };
+  });
   const injectedGenerator = vi.fn(generator);
   const controller = createController({
-    generator: injectedGenerator, solvers: [{ id: solverId, label: 'Injected solver', solver: injectedSolver, resumable: bfsResumable }],
+    generator: injectedGenerator, solvers: [{ id: solverId, label: 'Injected solver', solver, resumable: injectedSolver }],
     scheduler, onRender, initialOptions,
   });
   const events: ControllerEvent[] = [];
@@ -112,7 +115,7 @@ describe('controller playback', () => {
     expect(controller.getSnapshot().playback).toMatchObject({ kind: 'finished', outcome: 'unreachable' });
   });
 
-  it.each(['running', 'paused'] as const)('cancels a %s solver through iterator.return when generating and merges options', state => {
+  it.each(['running', 'paused'] as const)('cancels a %s solver session when generating and merges options', state => {
     const returned = vi.fn();
     const solver: Solver = (maze, endpoints) => {
       const iterator = bfs(maze, endpoints);
@@ -126,7 +129,7 @@ describe('controller playback', () => {
     const exploredCount = controller.getSnapshot().traceState.visited.size;
     const staleFrame = [...scheduler.callbacks.values()][0];
     controller.generate({ seed: 'new' });
-    expect(returned).toHaveBeenCalledExactlyOnceWith(cancelledResult(exploredCount));
+    expect(returned).not.toHaveBeenCalled();
     expect(events).toContainEqual({ type: 'state-change', playback: { kind: 'finished', outcome: 'cancelled', pathLength: 0, pathCost: null, exploredCount } });
     expect(injectedGenerator).toHaveBeenLastCalledWith({ ...initialOptions, seed: 'new' });
     expect(events.at(-1)?.type).toBe('generated');
@@ -148,7 +151,7 @@ describe('controller playback', () => {
     controller.step();
     if (state === 'running') controller.resume();
     controller.reset();
-    expect(returned).toHaveBeenCalledTimes(1);
+    expect(returned).not.toHaveBeenCalled();
     expect(controller.getSnapshot().generation.environment).toBe(environment);
     expect(injectedGenerator).toHaveBeenCalledTimes(1);
     expect(controller.getSnapshot()).toMatchObject({ traceState: initialTraceState, playback: { kind: 'idle' } });
@@ -266,11 +269,11 @@ describe('controller playback', () => {
 
   it('selects injected solvers by id and preserves the current selection', () => {
     const scheduler = new FakeScheduler();
-    const first = vi.fn(bfs);
-    const second = vi.fn(bfs);
+    const first = vi.fn(bfsResumable);
+    const second = vi.fn(bfsResumable);
     const secondId = 'second' as SolverId;
     const controller = createController({ generator: recursiveBacktracker, solvers: [
-      { id: solverId, label: 'First', solver: first, resumable: bfsResumable }, { id: secondId, label: 'Second', solver: second, resumable: bfsResumable },
+      { id: solverId, label: 'First', solver: bfs, resumable: first }, { id: secondId, label: 'Second', solver: bfs, resumable: second },
     ], scheduler, onRender: vi.fn(), initialOptions });
     controller.solve(secondId); controller.runToEnd();
     controller.reset(); controller.step();
@@ -301,7 +304,7 @@ describe('controller playback', () => {
     controller.step(); controller.replay(); controller.setSpeed(NaN); controller.runToEnd(); controller.on(listener);
     stale?.(1000);
     expect(controller.getSnapshot()).toEqual(before);
-    expect(finalized).toHaveBeenCalledTimes(1);
+    expect(finalized).not.toHaveBeenCalled(); // Sessions are discarded; the contract has no return hook.
     expect(listener).not.toHaveBeenCalled();
     expect(onRender).toHaveBeenCalledTimes(rendered);
     expect(scheduler.callbacks.size).toBe(0);
