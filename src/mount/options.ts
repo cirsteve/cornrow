@@ -6,6 +6,7 @@ export interface MountOptions {
   readonly appearance?: AppearancePatch;
   readonly environment?: 'wall-maze' | 'terrain';
   readonly openness?: number;
+  readonly editRadius?: number;
   readonly mode?: 'interactive' | 'background';
   readonly seed?: string | number;
   readonly rows?: number;
@@ -17,6 +18,7 @@ export interface MountOptions {
 export interface NormalisedMountOptions {
   readonly environment: 'wall-maze' | 'terrain';
   readonly openness: number;
+  readonly editRadius: number;
   readonly mode: 'interactive' | 'background';
   readonly seed: string;
   readonly rows: number;
@@ -34,6 +36,7 @@ export function normaliseMountOptions(options: MountOptions, freshSeed: string |
   const speed = options.stepsPerSecond ?? defaultSpeed;
   return {
     mode,
+    editRadius: Number.isFinite(options.editRadius) ? Math.min(5, Math.max(0, Math.round(options.editRadius ?? 1))) : 1,
     environment: options.environment === 'terrain' ? 'terrain' : 'wall-maze',
     openness: Number.isFinite(options.openness ?? 0.5) ? Math.min(1, Math.max(0, options.openness ?? 0.5)) : 0.5,
     // Native text fields must replay the same seed type used for the first maze.
