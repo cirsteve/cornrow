@@ -55,6 +55,45 @@ it('preserves overlay channels, isolates terrain bands, and applies root tokens'
   edit('control accent', 'color', '#123456'); expect(spy).toHaveBeenLastCalledWith({ ui: { controlAccent: '#123456' } });
   expect(container.parentElement!.style.getPropertyValue('--demo-control-accent')).toBe('#123456');
 });
+it('keeps overlay hex and alpha errors independent until each draft is corrected', () => {
+  const spy = vi.spyOn(handle, 'setAppearance');
+  const overlay = row('visited overlay');
+  const hex = overlay.querySelector<HTMLInputElement>('input[type=text]')!;
+  const alpha = edit('visited overlay', 'number', '101');
+  const errorFor = (node: HTMLInputElement) => container.querySelector('#' + node.getAttribute('aria-describedby'))!;
+  const alphaMessage = errorFor(alpha).textContent;
+  expect(alphaMessage).not.toBe('');
+  expect(alpha.getAttribute('aria-invalid')).toBe('true');
+  expect(hex.hasAttribute('aria-invalid')).toBe(false);
+  expect(errorFor(hex).textContent).toBe('');
+  expect(spy).not.toHaveBeenCalled();
+
+  edit('visited overlay', 'color', '#123456');
+  expect(alpha.getAttribute('aria-invalid')).toBe('true');
+  expect(errorFor(alpha).textContent).toBe(alphaMessage);
+  expect(spy).toHaveBeenLastCalledWith({ render: { palette: { visitedOverlay: { rgb: '#123456', alpha: .16 } } } });
+  edit('visited overlay', 'text', '#12');
+  const hexMessage = errorFor(hex).textContent;
+  expect(hexMessage).not.toBe('');
+  edit('visited overlay', 'number', '50');
+  expect(alpha.hasAttribute('aria-invalid')).toBe(false);
+  expect(errorFor(alpha).textContent).toBe('');
+  expect(hex.value).toBe('#12');
+  expect(hex.getAttribute('aria-invalid')).toBe('true');
+  expect(errorFor(hex).textContent).toBe(hexMessage);
+  expect(spy).toHaveBeenLastCalledWith({ render: { palette: { visitedOverlay: { rgb: '#123456', alpha: .5 } } } });
+  edit('visited overlay', 'text', '#abcdef');
+  expect(hex.hasAttribute('aria-invalid')).toBe(false);
+  expect(errorFor(hex).textContent).toBe('');
+
+  edit('visited overlay', 'number', '101');
+  edit('visited overlay', 'text', '#12');
+  container.querySelector('button')!.click();
+  expect(container.querySelector('[aria-invalid=true]')).toBeNull();
+  expect(errorFor(hex).textContent).toBe('');
+  expect(errorFor(alpha).textContent).toBe('');
+  expect(container.querySelector('[aria-live]')!.textContent).toBe('');
+});
 it('previews saturation, shape and active environment from stored base colors', () => {
   const spy = vi.spyOn(handle, 'setAppearance');
   const base = () => container.querySelector('[data-preview="Base color"]')!.textContent;

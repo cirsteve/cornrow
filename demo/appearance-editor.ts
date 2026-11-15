@@ -65,13 +65,17 @@ export function createAppearanceEditor({ container, handle, initialEnvironment }
       const alphaLabel = element('label', row, field.label + ' alpha (%)');
       const alpha = element('input', row); alpha.type = 'number'; alpha.min = '0'; alpha.max = '100'; alpha.step = 'any';
       alpha.id = picker.id + '-alpha'; alphaLabel.htmlFor = alpha.id;
-      alpha.setAttribute('aria-describedby', error.id);
+      const alphaError = element('span', row); alphaError.id = alpha.id + '-error'; alphaError.className = 'appearance-error';
+      alpha.setAttribute('aria-describedby', alphaError.id);
+      function clearAlpha() { alpha.removeAttribute('aria-invalid'); alphaError.textContent = ''; }
       listen(alpha, 'input', () => {
         const parsed = parsePercent(alpha.value);
-        if (!parsed.ok) { alpha.setAttribute('aria-invalid', 'true'); invalid(parsed.error.detail); return; }
-        if (apply(alphaPatch(appearance, path, parsed.value))) { alpha.removeAttribute('aria-invalid'); if (parseHexDraft(text.value).ok) clear(); }
+        if (!parsed.ok) {
+          alpha.setAttribute('aria-invalid', 'true'); alphaError.textContent = parsed.error.detail; live.textContent = parsed.error.detail; return;
+        }
+        if (apply(alphaPatch(appearance, path, parsed.value))) clearAlpha();
       });
-      refreshers.push(() => { alpha.value = formatAlpha(appearance.render.palette[path.key].alpha); alpha.removeAttribute('aria-invalid'); });
+      refreshers.push(() => { alpha.value = formatAlpha(appearance.render.palette[path.key].alpha); clearAlpha(); });
     }
     refreshers.push(refresh);
   }
