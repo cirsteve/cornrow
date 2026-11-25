@@ -29,3 +29,21 @@ jobs:
       - run: bun run typecheck
 
       - run: bun run test
+
+      # Builds dist/, packs it and typechecks an installed-tarball consumer, so a
+      # packaging break fails the PR that causes it rather than the next release.
+      - run: bun run test:package
+
+  actionlint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      # Pinned script and binary. Reads .github/actionlint.yaml and runs
+      # shellcheck (preinstalled on ubuntu runners) over run: blocks.
+      - name: Lint workflow files
+        run: |
+          bash <(curl -sSfL https://raw.githubusercontent.com/rhysd/actionlint/v1.7.12/scripts/download-actionlint.bash) 1.7.12
+          ./actionlint -color
+        shell: bash
