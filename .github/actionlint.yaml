@@ -1,0 +1,6 @@
+paths:
+  .github/workflows/publish.yml:
+    ignore:
+      # concurrency.queue (GitHub changelog 2026-05-07) is newer than actionlint's
+      # schema (1.7.12 and main both reject it). Drop this once actionlint knows the key.
+      - 'unexpected key "queue" for "concurrency" section'
