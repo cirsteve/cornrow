@@ -279,5 +279,7 @@ package contains only dist/, package.json, README.md and LICENSE. Tests include
 an import of the public entry in Node followed by generation and both solvers,
 and instrumented browser lifecycle accounting for mount/destroy.
 
-License: [MIT](LICENSE), copyright 2026 cirsteve. `npm publish` is an operator-only
-step after confirming the package name `@cirsteve/cornrow` and the licence.
+Releases: bump `version` in package.json and merge to main. The Publish workflow
+publishes any version not yet on npm, with provenance, through npm trusted publishing.
+
+License: [MIT](LICENSE), copyright 2026 cirsteve.

@@ -130,4 +130,7 @@ Mode-specific behavior belongs in the mount layer. Background mode reuses the
 controller, host signals and disposables; its pure phase function owns transitions
 and its hold clock advances only with frame-scheduler timestamps.
 
-`npm publish` is operator-only, after confirming the package name and MIT licence.
+Releases go out through `.github/workflows/publish.yml` (npm trusted publishing
+over OIDC, with provenance): bumping `version` in package.json and merging to main
+is the release. Do not run `npm publish` locally; 0.2.0 was the one manual publish
+needed to create the package.

@@ -1,0 +1,97 @@
+# Publishes @cirsteve/cornrow to npm over OIDC: no stored token, no 2FA prompt.
+#
+# npmjs.com names this repository and this file (publish.yml) as the package's
+# trusted publisher. Renaming the file breaks publishing until that setting is
+# updated to match.
+#
+# The release ritual is bumping "version" in package.json and merging. A push to
+# main publishes only when that version is not yet on the registry, so a merge
+# that leaves the version alone publishes nothing, and a re-run is a no-op.
+# Provenance is requested explicitly; OIDC alone does not attach it.
+name: Publish
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Two quick merges must not race to publish the same version. Queue rather than
+# cancel: a cancelled run here is a dropped release.
+concurrency:
+  group: publish
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  # Decides before any credential is minted, so an ordinary merge never reaches
+  # the job that can write to npm.
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      publish: ${{ steps.plan.outputs.publish }}
+      version: ${{ steps.plan.outputs.version }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: Is this version already on npm?
+        id: plan
+        run: |
+          name=$(node -p "require('./package.json').name")
+          version=$(node -p "require('./package.json').version")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          # Ask for the exact version, not the package document: the registry CDN
+          # can keep serving a stale 404 for the whole package after a publish.
+          # Anything other than a clear 200 or 404 fails the run rather than guessing.
+          status=$(curl -s -o /dev/null -w '%{http_code}' \
+            "https://registry.npmjs.org/${name/\//%2f}/$version")
+          case "$status" in
+            200) echo "$name@$version is already published; nothing to do."
+                 echo "publish=false" >> "$GITHUB_OUTPUT" ;;
+            404) echo "$name@$version is not on npm; publishing."
+                 echo "publish=true" >> "$GITHUB_OUTPUT" ;;
+            *)   echo "::error::Registry answered $status for $name@$version"; exit 1 ;;
+          esac
+
+  publish:
+    needs: plan
+    if: needs.plan.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      # Lets the runner mint the OIDC token npm's trusted publishing accepts.
+      id-token: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v5
+        with:
+          # Trusted publishing needs Node >= 22.14.0.
+          node-version: '22.x'
+          registry-url: 'https://registry.npmjs.org'
+
+      # Runner images ship an npm older than trusted publishing supports.
+      - name: Use an npm that speaks OIDC
+        run: npm install -g npm@^11.5.1
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+
+      - run: bun install --frozen-lockfile
+
+      # The gates that guard a merge also guard a release. test:package builds
+      # dist/, packs it and typechecks an installed-tarball consumer.
+      - run: bun run typecheck
+      - run: bun run test
+      - run: bun run test:package
+
+      # prepack rebuilds dist/ from this commit before the tarball is made.
+      - name: Publish ${{ needs.plan.outputs.version }}
+        run: npm publish --provenance
